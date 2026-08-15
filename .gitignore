@@ -41,3 +41,9 @@ worktrees/
 
 # Native macOS app shell build output
 apps/macos/build/
+
+# Windows launcher build: WebView2 browser-cache and crash dumps are runtime
+# noise generated on every launch; the exe, WebView2 DLLs, BuildInfo.g.cs, and
+# the bundled dsh manifest remain tracked (dsh/node_modules is already ignored
+# by the node_modules/ rule above).
+apps/windows/build/DeepSeek Harness.exe.WebView2/
