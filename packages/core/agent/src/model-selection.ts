@@ -22,6 +22,13 @@ export interface ModelSelectionRef {
   current: ModelSelection | undefined
   /** Selection captured when the current step entered prompt assembly. */
   assembled: ModelSelection | undefined
+  /**
+   * Optional per-step override resolved at request time, before the fallback to
+   * {@link assembled}. `step` is 1-based within a turn, so a router can send the
+   * first (reasoning) step and its tool-continuation steps to different models.
+   * Absent, every step uses the assembled selection as before.
+   */
+  route?: (payload: { turn: number; step: number }) => ModelSelection | undefined
 }
 
 /**
@@ -53,9 +60,9 @@ export function installModelSelection(agentCtx: Context, selection: ModelSelecti
   })
   const disposeRequest = agentCtx.on(
     'agent/request',
-    async (_payload, next): Promise<LlmCallConfig> => {
+    async (payload, next): Promise<LlmCallConfig> => {
       const resolved = await next()
-      const selected = selection.assembled
+      const selected = selection.route?.(payload) ?? selection.assembled
       if (selected === undefined) return resolved
       const { reasoningEffort: _inheritedEffort, ...withoutInheritedEffort } = resolved
       return {

@@ -164,6 +164,7 @@
     { "path": "./packages/core/system-prompt" },
     { "path": "./packages/core/agent" },
     { "path": "./packages/core/agent-default-model" },
+    { "path": "./packages/core/model-router" },
     { "path": "./packages/interaction/commands" },
     { "path": "./packages/goal/goal" },
     { "path": "./packages/goal/tool-goal" },

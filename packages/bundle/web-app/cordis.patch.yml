@@ -99,6 +99,23 @@
     - id: api-gateway
       name: '@deepseek-ai/dsh-host-apiproxy'
 
+    # Per-step model routing: a turn's first step reasons on the reasoning
+    # slot and its tool-continuation steps execute on the execution slot. The
+    # gateway reads `ctx.modelRouter` per request; an explicit composer pick
+    # still wins. Override either slot in the `agent-model-router:` settings
+    # section without a restart.
+    - id: model-router
+      name: '@deepseek-ai/dsh-model-router'
+      config:
+        reasoning:
+          provider: deepseek-official
+          model: deepseek-v4-pro
+          reasoningEffort: high
+        execution:
+          provider: deepseek-official
+          model: deepseek-v4-flash
+          reasoningEffort: off
+
     - id: cordis-host-runner
       name: '@deepseek-ai/dsh-cordis-host-runner'
 

@@ -23,6 +23,18 @@ apps/windows/build.ps1 -BundleDsh -DshVersion 0.1.0-rc.6
 
 `-BundleDsh` 会把 `@deepseek-ai/dsh@<版本>` 装进 `build\dsh`（版本来自 `-DshVersion` 或 `DSH_BUNDLE_VERSION` 环境变量，默认 `latest`）。`-AppVersion` 会把启动器自身版本写入 exe（默认取 `-DshVersion`，内嵌 dsh 为 `latest` 时取 `0.0.0`）；`-UpdateRepos` 会固化启动时更新检查所查询的、以分号分隔的 `owner/repo` 列表（默认 `deepseek-ai/deepseek-harness`）。构建还会下载 WebView2 SDK，把 `Microsoft.Web.WebView2.Core.dll`、`Microsoft.Web.WebView2.WinForms.dll` 与 x64 的 `WebView2Loader.dll` 放到 exe 旁（可用 `WEBVIEW2_SDK_VERSION` 环境变量固定版本）。产物是一个包含 `DeepSeek Harness.exe`、三个 WebView2 DLL 与（内嵌时）`dsh\` 的文件夹——打包该文件夹即可分发。
 
+### 重新打包注意
+
+`build.ps1 -BundleDsh` 装的是 **上游** `@deepseek-ai/dsh`（来自 npm），其中**不包含**本 fork 的[双模型分流](#双模型分流)改动。每次重新执行 `-BundleDsh` 后，需要用 `apps/windows/rebundle.ps1` 重新套用本地改动：
+
+```powershell
+npx --yes pnpm@11.7.0 run build:lib:host   # 先构建本 fork 的各包
+powershell -ExecutionPolicy Bypass -File apps/windows/build.ps1 -BundleDsh -DshVersion 0.1.0-rc.6
+powershell -ExecutionPolicy Bypass -File apps/windows/rebundle.ps1
+```
+
+`rebundle.ps1` 会把改动过的包的本地构建产物覆盖回去（`dsh-agent`、`dsh-host-apiproxy`、`dsh-headless`、`dsh-web-app`），并把它旁边的 `dsh-model-router` 装好、链接进 profile 的模块回退目录，让 loader 能解析到它。
+
 ## 工作方式
 
 1. 启动时应用解析 `dsh`（其 `lib/bin.js`）与 `node` 可执行文件——`dshPath`/`nodePath` 注册表值，其次是 exe 旁的内嵌安装，最后是按 PATH 风格的搜索，包括 `%APPDATA%\npm`、Program Files、nvm-windows、Volta、bun 与 npx 缓存。
@@ -46,6 +58,50 @@ apps/windows/build.ps1 -BundleDsh -DshVersion 0.1.0-rc.6
 
 - `DeepSeek Harness.exe --check-update` —— 打印 `current`、`latest`、`source` 后退出。
 - `DeepSeek Harness.exe --update [版本]` —— 无界面执行自更新（未给版本时取最新），然后退出。
+
+## 双模型分流
+
+Web profile 内置了 `@deepseek-ai/dsh-model-router` 插件，把对话的每一步路由到两个模型中的一个：回合第 1 步用**推理**模型，之后的工具续作步骤用**执行**模型。它自动生效，使用无需任何配置，且适用于每个会话——除非你在 composer 里显式选了模型（显式选择在该会话中优先）。
+
+### 默认槽位
+
+出厂默认值在 `packages/bundle/web-app/cordis.patch.yml`：
+
+| 槽位 | 步骤范围 | 模型 |
+|---|---|---|
+| reasoning | 回合第 1 步 | `deepseek-v4-pro`，`reasoningEffort: high` |
+| execution | 每个工具结果之后的步骤 | `deepseek-v4-flash`，`reasoningEffort: off` |
+
+即：先由 `deepseek-v4-pro` 读懂你的请求、规划工作，然后每一轮工具往返交给 `deepseek-v4-flash` 去执行——在重推理已完成之后使用更快更省的模型。
+
+### 怎么用
+
+启动时无需任何操作：打开 `DeepSeek Harness.exe`，分流就已生效。可以从会话记录里确认（每个模型请求都会在它的 `request/header` 事件中记录 `provider` / `model` / `reasoningEffort`）。
+
+### 怎么自定义
+
+两个槽位是一个用户自有的设置段，热发布生效（编辑后下一步就生效，无需重启）。编辑 `%USERPROFILE%\.dsh\settings.yaml`：
+
+```yaml
+agent-model-router:
+  reasoning:
+    provider: deepseek-official
+    model: deepseek-v4-pro
+    reasoningEffort: high
+  execution:
+    provider: deepseek-official
+    model: deepseek-v4-flash
+    reasoningEffort: off
+```
+
+- 改任意模型或其 `reasoningEffort`（`off` / `high` / `max`，省略时取提供方默认）。
+- 要关闭分流、回到单一模型：删除整个 `agent-model-router` 段（回退到单一的 `agent-default-model`），或把两个槽位设成同一个模型。
+- 每个槽位的 `provider` / `model` 必填；`provider` 必须是你已配置的 adapter 路由（如 DeepSeek adapter 的 `deepseek-official`）。
+- 在 composer 里手动选择的模型会优先于分流。
+
+### 代码位置
+
+插件在 `packages/core/model-router`，接入点在 `packages/host/apiproxy/src/api-proxy.ts` 的按步模型选择处（以及 `packages/bundle/headless` 的直接驱动入口）。这是**本地 fork 新增**，尚未进入 npm 上游 `@deepseek-ai/dsh` 包——见[重新打包注意](#重新打包注意)。
 
 ## 配置
 

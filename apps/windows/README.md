@@ -23,6 +23,18 @@ apps/windows/build.ps1 -BundleDsh -DshVersion 0.1.0-rc.6
 
 `-BundleDsh` installs `@deepseek-ai/dsh@<version>` into `build\dsh` (version from `-DshVersion` or the `DSH_BUNDLE_VERSION` environment variable, default `latest`). `-AppVersion` stamps the launcher's own version into the exe (defaults to `-DshVersion`, or `0.0.0` when the bundled dsh is `latest`); `-UpdateRepos` bakes in the semicolon-separated `owner/repo` list the startup update check queries (default `deepseek-ai/deepseek-harness`). The build also downloads the WebView2 SDK and places `Microsoft.Web.WebView2.Core.dll`, `Microsoft.Web.WebView2.WinForms.dll`, and the x64 `WebView2Loader.dll` beside the exe (pin the version with the `WEBVIEW2_SDK_VERSION` environment variable). The result is a folder with `DeepSeek Harness.exe`, the three WebView2 DLLs, and (when bundled) `dsh\` — zip that folder to distribute.
 
+### Rebuild note
+
+`build.ps1 -BundleDsh` installs the **upstream** `@deepseek-ai/dsh` from npm, which does **not** contain this fork's [dual-model routing](#dual-model-routing) changes. After a rebuild that re-runs `-BundleDsh`, re-apply the local changes with `apps/windows/rebundle.ps1`:
+
+```powershell
+npx --yes pnpm@11.7.0 run build:lib:host   # build the fork's packages
+powershell -ExecutionPolicy Bypass -File apps/windows/build.ps1 -BundleDsh -DshVersion 0.1.0-rc.6
+powershell -ExecutionPolicy Bypass -File apps/windows/rebundle.ps1
+```
+
+`rebundle.ps1` overlays the locally-built outputs of the changed packages (`dsh-agent`, `dsh-host-apiproxy`, `dsh-headless`, `dsh-web-app`), installs `dsh-model-router` beside them, and links it into the profile's module fallback so the loader resolves it.
+
 ## How it works
 
 1. On launch the app resolves the `dsh` (its `lib/bin.js`) and `node` executables — the `dshPath`/`nodePath` registry values, then a bundled install beside the exe, then a PATH-style search including `%APPDATA%\npm`, Program Files, nvm-windows, Volta, bun, and the npx cache.
@@ -46,6 +58,50 @@ Headless diagnostics (exit without opening the UI):
 
 - `DeepSeek Harness.exe --check-update` — print `current`, `latest`, and `source`, then exit.
 - `DeepSeek Harness.exe --update [version]` — run the self-update (latest when no version is given), then exit.
+
+## Dual-model routing
+
+The web profile ships the `@deepseek-ai/dsh-model-router` plugin, which routes each step of a conversation to one of two models: a **reasoning** model for a turn's first step and an **execution** model for its later tool-continuation steps. It works automatically — no configuration is required to use it — and applies to every session unless you pick a model explicitly in the composer (an explicit pick wins for that session).
+
+### Default slots
+
+The shipped defaults live in `packages/bundle/web-app/cordis.patch.yml`:
+
+| Slot | Step range | Model |
+|---|---|---|
+| reasoning | step 1 of a turn | `deepseek-v4-pro`, `reasoningEffort: high` |
+| execution | every step after a tool result | `deepseek-v4-flash`, `reasoningEffort: off` |
+
+So the model reads your request and plans the work with `deepseek-v4-pro`, then executes each tool round trip with `deepseek-v4-flash` — cheaper and faster exactly where the heavy reasoning is already decided.
+
+### How to use
+
+There is nothing to do at launch: start `DeepSeek Harness.exe`, and routing is already active. You can confirm it from a session's transcript (each model request records `provider` / `model` / `reasoningEffort` in its `request/header` event).
+
+### How to customize
+
+Both slots are a user-owned settings section that hot-publishes (an edit reaches the very next step, no restart). Edit `%USERPROFILE%\.dsh\settings.yaml`:
+
+```yaml
+agent-model-router:
+  reasoning:
+    provider: deepseek-official
+    model: deepseek-v4-pro
+    reasoningEffort: high
+  execution:
+    provider: deepseek-official
+    model: deepseek-v4-flash
+    reasoningEffort: off
+```
+
+- Change either model or its `reasoningEffort` (`off` / `high` / `max`, or omit for the provider default).
+- To disable routing and go back to a single model, either delete the whole `agent-model-router` section (falling back to the single `agent-default-model` selection) or set both slots to the same model.
+- Per slot the `provider` / `model` pair is required; the route must exist in an adapter you have configured (e.g. `deepseek-official` from the DeepSeek adapter).
+- A model you pick in the composer overrides routing for that session.
+
+### Where it lives
+
+The plugin is `packages/core/model-router`, wired into the web entry point's per-step model selection in `packages/host/apiproxy/src/api-proxy.ts` (and the headless driver in `packages/bundle/headless`). This is a **local fork addition**, not yet in the upstream npm `@deepseek-ai/dsh` package — see [Rebundle note](#rebundle-note).
 
 ## Configuration
 

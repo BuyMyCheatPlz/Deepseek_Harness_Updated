@@ -10,6 +10,9 @@ import type { Context } from '@deepseek-ai/cordis'
 import { installModelSelection } from '@deepseek-ai/dsh-agent'
 import type { Agent, ModelSelection, ModelSelectionRef, AgentOptions, AgentStatus } from '@deepseek-ai/dsh-agent'
 import type {} from '@deepseek-ai/dsh-agent-presets/types'
+// Type-only: resolves `ctx.get('modelRouter')` to the per-step router without a
+// value dependency, so a composition without the router still serves the Web UI.
+import type {} from '@deepseek-ai/dsh-model-router'
 import { AttachmentError } from '@deepseek-ai/dsh-attachment'
 import type { ImageAttachmentRef } from '@deepseek-ai/dsh-attachment'
 import { contentHasImage, createUserMessage, freezeMessage, ReasoningEffortId } from '@deepseek-ai/dsh-llm'
@@ -1174,6 +1177,13 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
         picked = next
       },
       assembled: undefined,
+      // An explicit composer pick wins; otherwise a configured model-router
+      // routes the first step of a turn to its reasoning model and the
+      // tool-continuation steps to its execution model, and an absent router
+      // (or one without both slots) leaves the assembled default in place.
+      route: payload => picked !== undefined
+        ? undefined
+        : ctx.get('modelRouter')?.route(payload),
     }
     installModelSelection(agent.ctx, selection)
     selections.set(agent, selection)

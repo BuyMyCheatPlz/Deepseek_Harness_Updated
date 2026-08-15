@@ -13,6 +13,9 @@ import z from '@deepseek-ai/schemastery'
 import { installModelSelection } from '@deepseek-ai/dsh-agent'
 import type { ModelSelectionRef } from '@deepseek-ai/dsh-agent'
 import type {} from '@deepseek-ai/dsh-agent-default-model'
+// Type-only: resolves `ctx.get('modelRouter')` to the per-step router without a
+// value dependency, so a composition without the router still runs.
+import type {} from '@deepseek-ai/dsh-model-router'
 import { createUserMessage } from '@deepseek-ai/dsh-llm'
 import { SessionId } from '@deepseek-ai/dsh-session'
 import type { SessionEvent } from '@deepseek-ai/dsh-session'
@@ -113,7 +116,11 @@ async function run(ctx: Context, task: string, io: HeadlessIo): Promise<void> {
     meta: { cwd: process.cwd() },
     agentOptions: { provider: selection.provider, model: selection.model },
     setup: (agentCtx) => {
-      const selected: ModelSelectionRef = { current: selection, assembled: undefined }
+      const selected: ModelSelectionRef = {
+        current: selection,
+        assembled: undefined,
+        route: payload => ctx.get('modelRouter')?.route(payload),
+      }
       installModelSelection(agentCtx, selected)
     },
   })
