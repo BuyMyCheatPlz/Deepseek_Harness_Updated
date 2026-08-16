@@ -10,8 +10,30 @@
 
 - Windows 10 或更高（.NET Framework 4.x 运行时随系统自带）
 - Microsoft Edge WebView2 运行时（Windows 11 与大多数 Windows 10 自带；缺失时应用会明确报错）
-- `node`（22.19+ 或 24+），可在 `PATH`、`%ProgramFiles%\nodejs`、`%LOCALAPPDATA%\Programs\nodejs`、nvm-windows、Volta 或 bun 安装中找到
+- `node`（22.19+ 或 24+），可在 `PATH`、`%ProgramFiles%\nodejs`、`%LOCALAPPDATA%\Programs\nodejs`、nvm-windows、Volta 或 bun 安装中找到——**仅**在你手打文件夹时需要。**安装版**（见下文「安装版」节）内置了一套便携 Node.js 运行时，用户完全无需系统 Node。
 - 已安装的 `dsh`（npm/pnpm 全局，或 npx 缓存），或使用 `-BundleDsh` 将其内嵌到 exe 旁
+
+## 安装版
+
+Release 发布 `DeepSeek-Harness-Setup-<版本>.exe`，一个基于 [Inno Setup](https://jrsoftware.org/isinfo.php) 的安装程序，把所有东西打成一个自包含的 `Setup.exe`：
+
+- 启动器 exe + 三个 WebView2 DLL
+- 内嵌的 web 运行时（`dsh\`），已套用 fork 的 Plan/Act 分流与 Auto/Manual 开关
+- 一套**便携 Node.js 运行时**（`runtime\node`）——无需系统 Node.js 或任何 web 工具链
+
+运行安装程序后，会装到 `%ProgramFiles%\DeepSeek Harness`、建开始菜单快捷方式（可选桌面图标）、并注册卸载项。卸载：**设置 → 应用 → DeepSeek Harness → 卸载**。
+
+本地构建（需先按上文「重新打包与更新 fork 产物」把 `build\` 构建好并 rebundle）：
+
+```powershell
+npx --yes pnpm@11.7.0 run build:lib:host      # build the fork's packages
+npx --yes pnpm@11.7.0 run build:lib:client     # build the fork's browser bundles
+powershell -ExecutionPolicy Bypass -File apps/windows/build.ps1 -BundleDsh -DshVersion 0.1.0-rc.6
+powershell -ExecutionPolicy Bypass -File apps/windows/rebundle.ps1
+powershell -ExecutionPolicy Bypass -File apps/windows/build-installer.ps1   # -> build/DeepSeek-Harness-Setup-0.1.0-rc.6.exe
+```
+
+`build-installer.ps1` 会下载并暂存便携 Node（`-NodeVersion`，默认 22.19.0）到 `build\runtime\node`，再用 Inno Setup（`PATH` 里的 `ISCC.exe`，或 `ISCC_PATH`）编译 `installer.iss`。
 
 ## 构建
 
@@ -154,4 +176,14 @@ reg add HKCU\Software\DeepSeek Harness /v port /t REG_DWORD /d 8080
 
 ## 发布
 
-两个平台由 `.github/workflows/app-release.yml` 构建并挂到同一个 GitHub Release；产物为 `DeepSeek-Harness-<版本>-windows-x64.zip`（发布时包含 exe 与内嵌的 `dsh\` 文件夹）。发布流程与上游自动同步见 [macOS README](../macos/README.md#release)。
+本 fork 只发布**Windows**应用，产物是一个自包含安装程序。`.github/workflows/app-release.yml` 在 CI 里构建 exe（先内嵌上游 `@deepseek-ai/dsh`，再构建 fork 工作区并执行 `apps/windows/rebundle.ps1`，把 fork 的 Plan/Act 分流与 Auto/Manual 开关一并打进产物），然后用 `apps/windows/build-installer.ps1` 编译出 `DeepSeek-Harness-Setup-<版本>.exe` 并挂到 GitHub Release；fork 中 macOS 任务已跳过。
+
+要发布 release，推送一个 `dsh-v*` 标签即可——标签名去掉 `dsh-v` 前缀即为版本号，且该版本必须已发布到 npm 的 `@deepseek-ai/dsh`（`-BundleDsh` 才能安装）：
+
+```bash
+git push origin <branch> --no-verify
+git tag dsh-v0.1.0-rc.6
+git push origin dsh-v0.1.0-rc.6
+```
+
+推送标签会触发 workflow 的 `publish` 任务（使用 Actions 的 `GITHUB_TOKEN`），自动创建 Release 并挂上 `DeepSeek-Harness-Setup-<版本>.exe`。也可以在 Actions 页面手动触发（`workflow_dispatch`，`publish=true`，且需从 `dsh-v*` 标签运行）。

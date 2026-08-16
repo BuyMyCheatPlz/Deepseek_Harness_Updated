@@ -192,9 +192,16 @@ namespace DeepSeekHarness
             return dirs;
         }
 
+        // The installer bundles a portable Node runtime under runtime\node beside
+        // the exe so a user needs no system Node. It is preferred over any
+        // system install (and only the explicit nodePath registry override beats
+        // it), mirroring how FindDsh prefers the bundled dsh\.
         public static string FindNode()
         {
             if (Settings.NodePath != null && File.Exists(Settings.NodePath)) return Settings.NodePath;
+            string bundled = Path.Combine(AppDomain.CurrentDomain.BaseDirectory,
+                "runtime", "node", "node.exe");
+            if (File.Exists(bundled)) return bundled;
             foreach (string dir in CandidateDirs())
             {
                 string candidate = Path.Combine(dir, "node.exe");

@@ -35,8 +35,12 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # The fork ships the Windows exe only. The macOS shell is skipped in this
+  # fork's release so the Release does not attach an upstream-behavior macOS app
+  # that would silently lack the fork's Plan/Act routing and Auto/Manual toggle.
   build-macos:
     name: Build DeepSeek Harness.app
+    if: false
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v6
@@ -151,6 +155,41 @@ jobs:
           fi
           powershell -ExecutionPolicy Bypass -File apps/windows/build.ps1 "${ARGS[@]}"
 
+      # The fork's features (Plan/Act dual-model routing, the Auto/Manual model
+      # toggle, and the session.setAutoRouting RPC behind it) live only in this
+      # fork's packages. -BundleDsh installs the UPSTREAM npm @deepseek-ai/dsh,
+      # so after bundling we build the fork workspace and overlay the fork-built
+      # host packages + browser bundles with rebundle.ps1. Without this the exe
+      # would ship upstream behavior.
+      - name: Install pnpm
+        shell: bash
+        run: |
+          corepack prepare pnpm@11.7.0 --activate
+          corepack enable
+          pnpm --version
+
+      - name: Install workspace deps
+        shell: bash
+        run: pnpm install --frozen-lockfile=false
+
+      - name: Build the fork packages (host + browser imports)
+        shell: bash
+        run: |
+          pnpm run build:lib:host
+          pnpm run build:lib:client
+
+      - name: Overlay the fork build into the bundled dsh (rebundle)
+        shell: pwsh
+        run: apps/windows/rebundle.ps1
+
+      - name: Verify the fork overlay landed
+        shell: bash
+        run: |
+          WIRE="apps/windows/build/dsh/node_modules/@deepseek-ai/dsh-client-connection/lib/client.js"
+          test -f "$WIRE"
+          grep -q "session.setAutoRouting" "$WIRE"
+          test -f "apps/windows/build/dsh/node_modules/@deepseek-ai/dsh-model-router/lib/index.js"
+
       - name: Verify the app
         shell: bash
         run: |
@@ -169,23 +208,29 @@ jobs:
         shell: pwsh
         run: apps/windows/scripts/test-lifecycle.ps1
 
-      - name: Zip the app
+      # Build the self-contained Setup.exe installer. build-installer.ps1
+      # reuses the already-built + rebundled build/ folder (it never re-installs
+      # upstream, so the fork overlay survives), adds a portable Node.js runtime
+      # under build/runtime/node, and compiles installer.iss with Inno Setup into
+      # build/DeepSeek-Harness-Setup-<version>.exe.
+      - name: Install Inno Setup
         shell: bash
-        env:
-          VERSION: ${{ steps.version.outputs.version }}
+        run: choco install innosetup --yes --no-progress
+
+      - name: Build the Windows installer (Setup.exe)
+        shell: pwsh
+        run: apps/windows/build-installer.ps1 -NodeVersion 22.19.0
+
+      - name: Verify the installer
+        shell: bash
         run: |
-          cd apps/windows/build
-          ITEMS=("'DeepSeek Harness.exe'" "'Microsoft.Web.WebView2.Core.dll'" "'Microsoft.Web.WebView2.WinForms.dll'" "'WebView2Loader.dll'")
-          if [[ -d dsh ]]; then
-            ITEMS+=("'dsh'")
-          fi
-          LIST=$(IFS=,; echo "${ITEMS[*]}")
-          powershell -Command "Compress-Archive -Path $LIST -DestinationPath 'DeepSeek-Harness-${VERSION}-windows-x64.zip' -Force"
+          ls apps/windows/build/DeepSeek-Harness-Setup-*.exe
+          test -f "apps/windows/build/runtime/node/node.exe"
 
       - uses: actions/upload-artifact@v4
         with:
           name: DeepSeek-Harness-windows
-          path: apps/windows/build/DeepSeek-Harness-*.zip
+          path: apps/windows/build/DeepSeek-Harness-Setup-*.exe
           if-no-files-found: error
           retention-days: 7
 
@@ -219,17 +264,18 @@ jobs:
           set -euo pipefail
           TAG="$GITHUB_REF_NAME"
           VERSION="${TAG#dsh-v}"
-          if [[ -z "$(ls dist/*.zip 2>/dev/null)" ]]; then
-            echo "::error::no platform zip assets found under dist/"
+          if [[ -z "$(ls dist/DeepSeek-Harness-Setup-*.exe 2>/dev/null)" ]]; then
+            echo "::error::no Windows setup asset found under dist/"
             exit 1
           fi
-          NOTES="DeepSeek Harness ${VERSION} for macOS (universal binary: Apple Silicon + Intel) and Windows (x64)."
-          NOTES+=$'\n\n- Each app launches `dsh web` unchanged and releases its port on quit.'
-          NOTES+=$'\n- macOS builds are signed ad-hoc (not notarized): if Gatekeeper objects on first launch, right-click the app and choose Open.'
+          NOTES="DeepSeek Harness ${VERSION} Windows installer (x64), built from this fork."
+          NOTES+=$'\n\n- Run DeepSeek-Harness-Setup-${VERSION}.exe to install. The installer bundles a portable Node.js runtime and the web UI, so no Node.js or toolchain is required.'
+          NOTES+=$'\n- Includes the fork additions: Plan/Act dual-model routing (Plan → deepseek-v4-pro, Act → deepseek-v4-flash) and the model selector\'s Auto/Manual toggle.'
+          NOTES+=$'\n- To re-apply the fork bundle after a rebuild, see `apps/windows/rebundle.ps1` (usage and update method in `apps/windows/README.md`).'
           if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release upload "$TAG" dist/*.zip --clobber
+            gh release upload "$TAG" dist/DeepSeek-Harness-Setup-*.exe --clobber
           else
-            gh release create "$TAG" dist/*.zip --title "DeepSeek Harness ${VERSION}" --notes "$NOTES"
+            gh release create "$TAG" dist/DeepSeek-Harness-Setup-*.exe --title "DeepSeek Harness ${VERSION}" --notes "$NOTES"
           fi
           # A tag deleted and recreated (tag moves) leaves the release untagged
           # and draft; publish it so the asset is visible.

@@ -10,8 +10,30 @@ The launcher is a single C# file compiled with the .NET Framework `csc.exe` that
 
 - Windows 10 or newer (the .NET Framework 4.x runtime ships with the OS)
 - the Microsoft Edge WebView2 runtime (ships with Windows 11 and most Windows 10 installs; the app reports a clear error when it is missing)
-- `node` (22.19+ or 24+), reachable on `PATH` or at `%ProgramFiles%\nodejs`, `%LOCALAPPDATA%\Programs\nodejs`, nvm-windows, Volta, or bun installs
+- `node` (22.19+ or 24+), reachable on `PATH` or at `%ProgramFiles%\nodejs`, `%LOCALAPPDATA%\Programs\nodejs`, nvm-windows, Volta, or bun installs — **only** when you hand-build the folder. The **installer** (see the Installer section below) bundles a portable Node.js runtime, so a user needs no system Node at all.
 - an installed `dsh` (npm/pnpm global, or an npx cache), or `-BundleDsh` to embed one beside the exe
+
+## Installer
+
+The release ships `DeepSeek-Harness-Setup-<version>.exe`, an [Inno Setup](https://jrsoftware.org/isinfo.php) installer that packages everything into one self-contained `Setup.exe`:
+
+- the launcher exe + the three WebView2 DLLs
+- the bundled web runtime (`dsh\`), re-applied with the fork's Plan/Act routing and Auto/Manual toggle
+- a **portable Node.js runtime** (`runtime\node`) — no system Node.js or web toolchain is required
+
+Run the installer, and it installs to `%ProgramFiles%\DeepSeek Harness`, adds a Start-menu shortcut (and an optional Desktop icon), and registers an uninstall entry. To remove it, use **Settings → Apps → DeepSeek Harness → Uninstall**.
+
+Build it locally with (expects `build\` already built and rebundled per the Rebuild note above):
+
+```powershell
+npx --yes pnpm@11.7.0 run build:lib:host      # build the fork's packages
+npx --yes pnpm@11.7.0 run build:lib:client     # build the fork's browser bundles
+powershell -ExecutionPolicy Bypass -File apps/windows/build.ps1 -BundleDsh -DshVersion 0.1.0-rc.6
+powershell -ExecutionPolicy Bypass -File apps/windows/rebundle.ps1
+powershell -ExecutionPolicy Bypass -File apps/windows/build-installer.ps1   # -> build/DeepSeek-Harness-Setup-0.1.0-rc.6.exe
+```
+
+`build-installer.ps1` downloads and stages a portable Node (`-NodeVersion`, default 22.19.0) under `build\runtime\node`, then compiles `installer.iss` with Inno Setup (`ISCC.exe` on `PATH`, or `ISCC_PATH`).
 
 ## Build
 
@@ -154,4 +176,14 @@ Uninstall: quit the app, delete the folder, and remove the registry key `HKCU\So
 
 ## Release
 
-Both platforms are built and attached to the same GitHub Release by `.github/workflows/app-release.yml`; the asset is `DeepSeek-Harness-<version>-windows-x64.zip` (the exe plus the bundled `dsh\` folder when released). See [the macOS README](../macos/README.md#release) for the release flow and the automatic upstream sync.
+This fork publishes the **Windows** app only, as a self-contained installer. `.github/workflows/app-release.yml` builds the exe in CI (bundling upstream `@deepseek-ai/dsh`, then building the fork workspace and re-applying `apps/windows/rebundle.ps1` so the fork's Plan/Act routing and Auto/Manual toggle are baked in), then compiles `apps/windows/build-installer.ps1` into `DeepSeek-Harness-Setup-<version>.exe` and attaches it to a GitHub Release. The macOS job is skipped in this fork.
+
+To publish a release, push a `dsh-v*` tag — the tag name (minus the `dsh-v` prefix) is the version, and must already exist on npm as `@deepseek-ai/dsh` so `-BundleDsh` can install it:
+
+```bash
+git push origin <branch> --no-verify
+git tag dsh-v0.1.0-rc.6
+git push origin dsh-v0.1.0-rc.6
+```
+
+Pushing the tag triggers the workflow's `publish` job (which uses the Actions `GITHUB_TOKEN`), creating the Release and attaching `DeepSeek-Harness-Setup-<version>.exe` automatically. You can also run it manually from the Actions tab (`workflow_dispatch` with `publish=true` from a `dsh-v*` tag).
