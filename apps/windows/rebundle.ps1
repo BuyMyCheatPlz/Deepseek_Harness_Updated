@@ -21,6 +21,11 @@ Copy-Item (Join-Path $repo 'packages\core\agent\lib\index.js')          (Join-Pa
 Copy-Item (Join-Path $repo 'packages\host\apiproxy\lib\index.js')       (Join-Path $buildDsh 'dsh-host-apiproxy\lib\index.js') -Force
 Copy-Item (Join-Path $repo 'packages\bundle\headless\lib\index.js')     (Join-Path $buildDsh 'dsh-headless\lib\index.js') -Force
 Copy-Item (Join-Path $repo 'packages\bundle\web-app\cordis.patch.yml')  (Join-Path $buildDsh 'dsh-web-app\cordis.patch.yml') -Force
+# The web-app manifest declares @deepseek-ai/dsh-model-router as a dependency,
+# which is what makes the boot-time module-fallback heal (healProfilesModuleFallback)
+# link it into $DSH_HOME/profiles/node_modules. Overlay it too, or a fresh/scratch
+# DSH_HOME (CI lifecycle test) can't resolve model-router and `dsh web` fails to boot.
+Copy-Item (Join-Path $repo 'packages\bundle\web-app\package.json')      (Join-Path $buildDsh 'dsh-web-app\package.json') -Force
 
 # 1b. Overlay the fork's browser bundles too. The wire client (dsh-client-connection)
 #     inlines the fetch carrier + the sessions value schemas, so it MUST be the
