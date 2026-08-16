@@ -75,7 +75,15 @@ if (-not $iscc) {
 }
 
 Write-Host "==> Compiling the installer (ISCC) for version $displayVersion"
-& $iscc "/DMyAppVersion=$displayVersion" (Join-Path $scriptDir 'installer.iss')
-if ($LASTEXITCODE -ne 0) { throw "ISCC failed with exit code $LASTEXITCODE" }
+# Run ISCC from the script directory so the installer.iss relative paths
+# (`Source: build\...`, `OutputDir=build`) resolve against apps\windows
+# regardless of the caller's working directory.
+Push-Location $scriptDir
+try {
+  & $iscc "/DMyAppVersion=$displayVersion" 'installer.iss'
+  if ($LASTEXITCODE -ne 0) { throw "ISCC failed with exit code $LASTEXITCODE" }
+} finally {
+  Pop-Location
+}
 
 Write-Host "==> Done: $outDir\DeepSeek-Harness-Setup-$displayVersion.exe"

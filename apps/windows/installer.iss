@@ -46,7 +46,6 @@ Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
 MinVersion=10.0
-VersionInfoVersion={#MyAppVersion}
 
 [Languages]
 Name: "en"; MessagesFile: "compiler:Default.isl"
@@ -57,14 +56,14 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 
 [Files]
 ; Launcher + WebView2 runtime.
-Source: "{#MyAppSourcePath}{#BuildDir}\{#MyAppExe}"; DestDir: "{app}"; Flags: ignoreversion
-Source: "{#MyAppSourcePath}{#BuildDir}\Microsoft.Web.WebView2.Core.dll"; DestDir: "{app}"; Flags: ignoreversion
-Source: "{#MyAppSourcePath}{#BuildDir}\Microsoft.Web.WebView2.WinForms.dll"; DestDir: "{app}"; Flags: ignoreversion
-Source: "{#MyAppSourcePath}{#BuildDir}\WebView2Loader.dll"; DestDir: "{app}"; Flags: ignoreversion
+Source: "{#BuildDir}\{#MyAppExe}"; DestDir: "{app}"; Flags: ignoreversion
+Source: "{#BuildDir}\Microsoft.Web.WebView2.Core.dll"; DestDir: "{app}"; Flags: ignoreversion
+Source: "{#BuildDir}\Microsoft.Web.WebView2.WinForms.dll"; DestDir: "{app}"; Flags: ignoreversion
+Source: "{#BuildDir}\WebView2Loader.dll"; DestDir: "{app}"; Flags: ignoreversion
 ; Bundled web runtime (the fork's dsh, already rebundled).
-Source: "{#MyAppSourcePath}{#BuildDir}\dsh\*"; DestDir: "{app}\dsh"; Flags: recursesubdirs ignoreversion
+Source: "{#BuildDir}\dsh\*"; DestDir: "{app}\dsh"; Flags: recursesubdirs ignoreversion
 ; Bundled portable Node.js runtime (node.exe + npm). Supplied by build-installer.ps1.
-Source: "{#MyAppSourcePath}{#BuildDir}\runtime\node\*"; DestDir: "{app}\runtime\node"; Flags: recursesubdirs ignoreversion
+Source: "{#BuildDir}\runtime\node\*"; DestDir: "{app}\runtime\node"; Flags: recursesubdirs ignoreversion
 
 [Icons]
 Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExe}"
