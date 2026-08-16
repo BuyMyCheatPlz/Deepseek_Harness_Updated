@@ -16,6 +16,13 @@ export interface ModelDirectoryState {
   /** Model selection the host reports for the next assembled step; null before the first load. */
   current: ModelSelection | null
   /**
+   * Whether the session routes models automatically by plan mode (Plan =
+   * reasoning slot, Act = execution slot) rather than a manual pick. When
+   * `true` the composer seat is read-only and `current` is the effective
+   * routed model; when `false` the seat is editable.
+   */
+  autoRouting: boolean
+  /**
    * Whether an adapter serves the current selection's provider, as the host reports
    * it — null before the first load, which is NOT the same as blocked. Read
    * this rather than "current matches no group": catalog membership is
@@ -37,7 +44,7 @@ export interface ModelDirectoryState {
 export class ModelDirectory {
   /** The shared snapshot both entries render from (uSES-safe store). */
   readonly store: SnapshotStore<ModelDirectoryState> = createSnapshotStore<ModelDirectoryState>({
-    current: null, routable: null, groups: [], failures: [], status: 'idle', error: null,
+    current: null, autoRouting: true, routable: null, groups: [], failures: [], status: 'idle', error: null,
   })
 
   /** Latest operation wins; an older response never overwrites a newer one. */
@@ -50,7 +57,7 @@ export class ModelDirectory {
    * @param available - whether this session may use Agent-bound model RPCs.
    */
   constructor(
-    private readonly sessions: Pick<IApiClient['sessions'], 'models' | 'selectModel'>,
+    private readonly sessions: Pick<IApiClient['sessions'], 'models' | 'selectModel' | 'setAutoRouting'>,
     private readonly sessionId: SessionId,
     private readonly available: () => boolean,
   ) {}
@@ -73,9 +80,10 @@ export class ModelDirectory {
       this.store.update((s) => { s.status = 'error'; s.error = `${result.error.code}: ${result.error.message}` })
       throw new Error(`session.models failed: ${result.error.code}: ${result.error.message}`)
     }
-    const { current, routable, groups, failures } = result.value
+    const { current, autoRouting, routable, groups, failures } = result.value
     this.store.update((s) => {
       s.current = current
+      s.autoRouting = autoRouting
       s.routable = routable
       s.groups = groups
       s.failures = failures
@@ -115,6 +123,35 @@ export class ModelDirectory {
     // landed is by construction one it can serve.
     this.store.update((s) => {
       s.current = result.value.selected
+      s.autoRouting = false
+      s.routable = true
+      s.status = 'ready'
+      s.error = null
+    })
+  }
+
+  /**
+   * Switch whether the session routes models automatically by plan mode.
+   * Turning auto-routing on clears any manual pick (the plan mode or default
+   * governs again); turning it off leaves a manual pick in effect.
+   * @param autoRouting - desired automatic-routing state.
+   */
+  async setAutoRouting(autoRouting: boolean): Promise<void> {
+    this.assertAvailable()
+    const generation = ++this.generation
+    this.store.update((s) => { s.status = 'selecting'; s.error = null })
+    const { result } = await this.sessions.setAutoRouting({ sessionId: this.sessionId, autoRouting })
+    if (this.disposed || generation !== this.generation) {
+      if (!result.ok) throw new Error(`${result.error.code}: ${result.error.message}`)
+      return
+    }
+    if (!result.ok) {
+      this.store.update((s) => { s.status = 'error'; s.error = `${result.error.code}: ${result.error.message}` })
+      throw new Error(`session.setAutoRouting failed: ${result.error.code}: ${result.error.message}`)
+    }
+    this.store.update((s) => {
+      s.current = result.value.current
+      s.autoRouting = result.value.autoRouting
       s.routable = true
       s.status = 'ready'
       s.error = null

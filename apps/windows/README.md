@@ -81,6 +81,15 @@ So the model reads your request and plans the work with `deepseek-v4-pro` while 
 
 There is nothing to do at launch: start `DeepSeek Harness.exe` and routing is active. You can confirm it from a session's transcript (each model request records `provider` / `model` / `reasoningEffort` in its `request/header` event).
 
+### Auto-routing vs manual model
+
+The composer's model seat is read-only while the session is on Plan/Act auto-routing: it shows the model the router actually serves for the current mode (Plan → `deepseek-v4-pro`, Act → `deepseek-v4-flash`) and is greyed out. A small **Auto / Manual** toggle beside it switches:
+
+- **Auto** (default): the session routes by plan mode (Plan/Act dual model). The model list is disabled.
+- **Manual**: the session uses the model you pick from the list; Plan/Act routing is off until you switch back to Auto.
+
+Picking a model while in Manual also turns Auto-routing off for that session. This is driven by host-side `autoRouting` state (per session), so it applies to every workspace without a restart.
+
 ### How to customize
 
 Both slots are a user-owned settings section that hot-publishes (an edit reaches the very next request, no restart). Edit `%USERPROFILE%\.dsh\settings.yaml`:

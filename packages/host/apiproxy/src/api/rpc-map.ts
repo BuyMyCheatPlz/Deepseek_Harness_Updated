@@ -28,6 +28,7 @@ export interface RpcMethodMap {
   'session.history': SessionsApi['history']
   'session.models': SessionsApi['models']
   'session.selectModel': SessionsApi['selectModel']
+  'session.setAutoRouting': SessionsApi['setAutoRouting']
   'session.rename': SessionsApi['rename']
   'session.fork': SessionsApi['fork']
   'session.prompt': SessionsApi['prompt']

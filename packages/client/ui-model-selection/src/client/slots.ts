@@ -22,4 +22,6 @@ export interface ModelSelectInjected {
    * @returns whether the host accepted the selection.
    */
   select: (selection: ModelSelection) => Promise<boolean>
+  /** Switch whether this session routes models automatically by plan mode. */
+  setAutoRouting: (autoRouting: boolean) => Promise<void>
 }

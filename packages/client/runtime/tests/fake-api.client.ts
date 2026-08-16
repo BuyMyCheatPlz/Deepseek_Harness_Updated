@@ -87,6 +87,7 @@ export class FakeApiClient implements IApiClient {
 
   onModels: (payload: unknown) => Promise<RpcResponse<SessionModels>> = () => Promise.resolve(ok({
     current: this.defaultModel,
+    autoRouting: true,
     routable: true,
     groups: [{
       id: 'deepseek-official',
@@ -98,6 +99,9 @@ export class FakeApiClient implements IApiClient {
   onSelectModel: (payload: { provider: string; model: string }) =>
   Promise<RpcResponse<{ selected: ModelSelection }>> =
     payload => Promise.resolve(ok({ selected: { provider: payload.provider, model: payload.model } }))
+  onSetAutoRouting: (payload: { autoRouting: boolean }) =>
+  Promise<RpcResponse<{ autoRouting: boolean; current: ModelSelection }>> =
+    payload => Promise.resolve(ok({ autoRouting: payload.autoRouting, current: this.defaultModel }))
   onPrompt: (payload: unknown) => Promise<RpcResponse<{ accepted: true }>> = () => Promise.resolve(ok({ accepted: true as const }))
   onAttachment: (payload: unknown) => Promise<RpcResponse<{ attachment: { attachmentId: never; mediaType: 'image/png'; bytes: number; width: number; height: number }; data: string }>> =
     () => Promise.resolve(ok({ attachment: { attachmentId: 'a' as never, mediaType: 'image/png', bytes: 1, width: 1, height: 1 }, data: 'AA==' }))
@@ -149,6 +153,8 @@ export class FakeApiClient implements IApiClient {
     models: (payload: unknown) => this.record('session.models', payload, this.onModels(payload)),
     selectModel: (payload: { provider: string; model: string }) =>
       this.record('session.selectModel', payload, this.onSelectModel(payload)),
+    setAutoRouting: (payload: { autoRouting: boolean }) =>
+      this.record('session.setAutoRouting', payload, this.onSetAutoRouting(payload)),
     rename: (payload: unknown) => this.record('session.rename', payload, this.onRename(payload)),
     fork: (payload: unknown) => this.record('session.fork', payload, this.onFork(payload)),
     prompt: (payload: unknown) => this.record('session.prompt', payload, this.onPrompt(payload)),

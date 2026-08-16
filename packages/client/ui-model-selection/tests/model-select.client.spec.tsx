@@ -32,6 +32,7 @@ const reasoning = {
 function state(overrides: Partial<ModelDirectoryState> = {}): ModelDirectoryState {
   return {
     current: { provider: 'deepseek-official', model: 'deepseek-v4-flash' },
+    autoRouting: false,
     routable: true,
     groups: [{
       id: 'deepseek-official',
@@ -60,6 +61,7 @@ describe('ModelSelect reasoning effort', () => {
       directory={directory}
       load={vi.fn()}
       select={select}
+      setAutoRouting={vi.fn()}
       t={t}
     />)
 
@@ -101,6 +103,7 @@ describe('ModelSelect reasoning effort', () => {
       directory={directory}
       load={vi.fn()}
       select={vi.fn().mockResolvedValue(true)}
+      setAutoRouting={vi.fn()}
       t={t}
     />)
 
@@ -123,6 +126,7 @@ describe('ModelSelect reasoning effort', () => {
       directory={directory}
       load={vi.fn()}
       select={select}
+      setAutoRouting={vi.fn()}
       t={t}
     />)
 
@@ -155,6 +159,7 @@ describe('ModelSelect reasoning effort', () => {
       directory={directory}
       load={vi.fn()}
       select={select}
+      setAutoRouting={vi.fn()}
       t={t}
     />)
 
@@ -175,6 +180,7 @@ describe('ModelSelect reasoning effort', () => {
       directory={createSnapshotStore(state())}
       load={load}
       select={vi.fn().mockResolvedValue(false)}
+      setAutoRouting={vi.fn()}
       t={t}
     />)
 

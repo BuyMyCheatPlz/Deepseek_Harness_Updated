@@ -4,7 +4,7 @@ English | [中文](README.zh.md)
 
 Mode-based model routing for the harness Agent: while plan mode is active (Cline-style "Plan") the **reasoning** slot serves every step, and once plan mode is off (Cline-style "Act") the **execution** slot does — a clean pro-to-flash handoff across the plan/execute boundary.
 
-The router is opt-in. The plugin mounts `ctx.modelRouter`, but `route()` returns `undefined` until the user-owned `agent-model-router` settings section names both slots — so an unconfigured router changes nothing and the single `agent-default-model` behavior is unchanged. Entry points that install `@deepseek-ai/dsh-agent`'s `installModelSelection` read `ctx.modelRouter.route(payload)` per request, feeding it the live `foldPlanMode(agent.session.events)` state, and apply the returned slot through the existing model-selection seam; an explicit composer model pick wins over routing.
+The router is opt-in. The plugin mounts `ctx.modelRouter`, but `route()` returns `undefined` until the user-owned `agent-model-router` settings section names both slots — so an unconfigured router changes nothing and the single `agent-default-model` behavior is unchanged. Entry points that install `@deepseek-ai/dsh-agent`'s `installModelSelection` read `ctx.modelRouter.route(payload)` per request, feeding it the live `foldPlanMode(agent.session.events)` state, and apply the returned slot through the existing model-selection seam. In the Web entry point an explicit model pick turns the session onto manual mode (host `autoRouting: false`), so the router no longer applies until the user switches back to Auto — see the Auto/Manual toggle in [the Windows app README](../../../apps/windows/README.md).
 
 ## How the mode switch works
 

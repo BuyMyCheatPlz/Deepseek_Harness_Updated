@@ -1117,7 +1117,15 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
     const { provider, model } = defaults.defaultModelSelection()
     return { provider, model }
   }
-  type WebModelSelectionRef = ModelSelectionRef & { current: ModelSelection }
+  type WebModelSelectionRef = ModelSelectionRef & {
+    current: ModelSelection
+    /** Route models automatically by plan mode (true) vs use a manual pick (false). */
+    autoRouting: boolean
+    /** The model actually served next: routing-folded when autoRouting, else the manual/log/default pick. */
+    effective(): ModelSelection
+    /** Drop a manual pick so automatic routing or the default governs again. */
+    clearManual(): void
+  }
   const selections = new WeakMap<Agent, WebModelSelectionRef>()
   /**
    * Serializes `agentPreset.select` per session. Two concurrent selects both
@@ -1159,39 +1167,54 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
     const installed = selections.get(agent)
     if (installed !== undefined) return installed
     let picked: ModelSelection | undefined
+    const autoRouting = true
+    const base = (): ModelSelection => {
+      if (picked !== undefined) return picked
+      const logged = agent.session.requestHeader()?.config
+      if (logged === undefined) return defaults.defaultModelSelection()
+      return {
+        provider: logged.provider,
+        model: logged.model,
+        ...logged.reasoningEffort === undefined
+          ? {}
+          : { reasoningEffort: logged.reasoningEffort },
+      }
+    }
+    // The model the next step actually runs: the router's per-step fold over
+    // plan mode when automatic routing is on, otherwise the manual/log pick.
+    const effective = (): ModelSelection => {
+      if (!autoRouting) return base()
+      const router = ctx.get('modelRouter')
+      if (router === undefined) return base()
+      return router.route({
+        step: 1,
+        planActive: foldPlanMode(agent.session.events),
+      }) ?? base()
+    }
     const selection: WebModelSelectionRef = {
       get current(): ModelSelection {
-        if (picked !== undefined) return picked
-        // Incrementally folded by the session, so a per-step read costs
-        // O(new events) rather than a rescan.
-        const logged = agent.session.requestHeader()?.config
-        if (logged === undefined) return defaults.defaultModelSelection()
-        return {
-          provider: logged.provider,
-          model: logged.model,
-          ...logged.reasoningEffort === undefined
-            ? {}
-            : { reasoningEffort: logged.reasoningEffort },
-        }
+        return base()
       },
       set current(next: ModelSelection) {
         picked = next
       },
+      autoRouting,
+      effective,
+      clearManual: () => { picked = undefined },
       assembled: undefined,
-      // An explicit composer pick wins; otherwise a configured model-router
-      // routes by plan mode: while plan mode is active (Cline-style Plan) the
-      // reasoning slot serves every step, and once it is off (Act) the
-      // execution slot does — a clean pro-to-flash handoff across the
-      // plan/execute boundary. An absent router (or one without both slots)
-      // leaves the assembled default in place.
+      // Auto routing wins by default; a manual composer pick turns it off for
+      // that session. While autoRouting is on, the router routes by plan mode:
+      // in plan mode (Cline-style Plan) the reasoning slot serves, and out of
+      // it (Act) the execution slot does. An absent router (or one without
+      // both slots) leaves the assembled default in place.
       route: (payload) => {
-        if (picked !== undefined) return undefined
+        if (!autoRouting) return picked
         const router = ctx.get('modelRouter')
-        if (router === undefined) return undefined
-        const agent = payload.agent as Partial<Agent> | undefined
+        if (router === undefined || picked !== undefined) return undefined
+        const agentCtx = payload.agent as Partial<Agent> | undefined
         return router.route({
           step: payload.step,
-          planActive: foldPlanMode(agent?.session?.events ?? []),
+          planActive: foldPlanMode(agentCtx?.session?.events ?? []),
         })
       },
     }
@@ -2293,10 +2316,24 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
         const { sessionId } = request.payload
         const found = await agentFor(sessionId)
         if ('error' in found) return err(request, found.error)
-        const current = selectionFor(found.agent).current
+        const sel = selectionFor(found.agent)
+        const current = sel.effective()
         const { groups, failures } = await buildModelCatalog(ctx)
         const routable = routeServed(current.provider)
-        return ok(request, { current: { ...current }, routable, groups, failures })
+        return ok(request, { current: { ...current }, autoRouting: sel.autoRouting, routable, groups, failures })
+      },
+
+      async setAutoRouting(request) {
+        const { sessionId, autoRouting } = request.payload
+        const found = await agentFor(sessionId)
+        if ('error' in found) return err(request, found.error)
+        const sel = selectionFor(found.agent)
+        // Turning automatic routing back on drops any manual pick so the plan
+        // mode (or the default) routes the session again.
+        if (autoRouting) sel.clearManual()
+        sel.autoRouting = autoRouting
+        const current = sel.effective()
+        return ok(request, { autoRouting: sel.autoRouting, current: { ...current } })
       },
 
       async selectModel(request) {
@@ -2331,7 +2368,10 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
                 ? {}
                 : { reasoningEffort: resolved.reasoningEffort },
             }
-            selectionFor(found.agent).current = selected
+            // A manual pick switches the session off automatic routing.
+            const sel = selectionFor(found.agent)
+            sel.autoRouting = false
+            sel.current = selected
             try {
               await defaults.saveDefaultModelSelection?.(selected)
             } catch (error: unknown) {

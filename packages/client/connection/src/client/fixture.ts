@@ -2380,6 +2380,7 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
           ?? { provider: 'deepseek-official', model: 'deepseek-v4-flash' },
         // The fixture's routes all serve; a surface exercising the blocked
         // posture drives it through its own stub.
+        autoRouting: true,
         routable: true,
         groups: fixtureModelGroups(),
         failures: [],
@@ -2394,6 +2395,11 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
         }
         modelSelections.set(request.payload.sessionId, selected)
         return ok(request, { selected })
+      },
+      setAutoRouting: (request) => {
+        const current = modelSelections.get(request.payload.sessionId)
+          ?? { provider: 'deepseek-official', model: 'deepseek-v4-flash' }
+        return ok(request, { autoRouting: request.payload.autoRouting, current })
       },
       prompt: (request) => {
         const { sessionId: id, mode, content } = request.payload
@@ -3083,6 +3089,7 @@ export class FixtureApiClient extends AbstractApiClient {
       case 'session.history': return this.api.sessions.history(request)
       case 'session.models': return this.api.sessions.models(request)
       case 'session.selectModel': return this.api.sessions.selectModel(request)
+      case 'session.setAutoRouting': return this.api.sessions.setAutoRouting(request)
       case 'session.rename': return this.api.sessions.rename(request)
       case 'session.fork': return this.api.sessions.fork(request)
       case 'session.prompt': return this.api.sessions.prompt(request)

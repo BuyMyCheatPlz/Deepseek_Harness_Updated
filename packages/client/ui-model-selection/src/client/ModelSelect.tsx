@@ -43,13 +43,23 @@ interface EffortChoice {
  * @returns the trigger and, while open, the two-level menu.
  */
 export function ModelSelect(
-  { locked, available, directory, load, select, t }:
+  { locked, available, directory, load, select, setAutoRouting, t }:
   ModelSelectInjected & { locked: boolean } & PropsLocale<'model'>,
 ) {
   const state = useSyncExternalStore(
     fn => directory.subscribe(fn),
     () => directory.getSnapshot(),
   )
+  // While the session routes automatically by plan mode the composer seat is
+  // read-only: it shows the effective routed model but the manual list is
+  // disabled.
+  const autoRouting = state.autoRouting
+  const [toggling, setToggling] = useState(false)
+  const toggleAuto = (): void => {
+    if (toggling) return
+    setToggling(true)
+    void setAutoRouting(!autoRouting).finally(() => setToggling(false))
+  }
   const [open, setOpen] = useState(false)
   const [pane, setPane] = useState<Pane>('root')
   // The in-menu error strip serves catalog loads (its Retry re-runs the
@@ -129,6 +139,8 @@ export function ModelSelect(
   const show = (): void => {
     setPane('root')
     setOpen(true)
+    // When auto-routing, opening shows the directory read-only (no re-select);
+    // still refresh to reflect the currently effective model.
     reload()
   }
 
@@ -227,7 +239,8 @@ export function ModelSelect(
         aria-expanded={open}
         aria-controls={open ? `${id}-menu` : undefined}
         title={triggerLabel}
-        disabled={locked}
+        disabled={locked || autoRouting}
+        aria-disabled={autoRouting || undefined}
         onClick={() => {
           if (open) {
             close()
@@ -239,6 +252,16 @@ export function ModelSelect(
         <span className={css.triggerLabel}>{modelLabel}</span>
         {effortLabel !== undefined && <span className={css.triggerEffort}>{effortLabel}</span>}
         <IconChevronDownOutline14 className={clsx(css.chevron, open && css.chevronOpen)} />
+      </button>
+      <button
+        type="button"
+        className={clsx(css.autoToggle, autoRouting && css.autoOn)}
+        title={autoRouting ? 'Plan/Act auto-routing — tap to pick a model manually' : 'Manual model — tap to return to Plan/Act auto-routing'}
+        aria-pressed={autoRouting}
+        disabled={locked || toggling}
+        onClick={toggleAuto}
+      >
+        {autoRouting ? 'Auto' : 'Manual'}
       </button>
 
       {open && (

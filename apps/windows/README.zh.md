@@ -81,6 +81,15 @@ Web profile 内置了 `@deepseek-ai/dsh-model-router` 插件，它根据会话�
 
 启动时无需任何操作：打开 `DeepSeek Harness.exe`，分流就已生效。可以从会话记录里确认（每个模型请求都会在它的 `request/header` 事件中记录 `provider` / `model` / `reasoningEffort`）。
 
+### 自动分流 vs 手动模型
+
+composer 的模型座位在会话处于 Plan/Act 自动分流时是**只读**的：它显示当前模式实际生效的模型（Plan → `deepseek-v4-pro`，Act → `deepseek-v4-flash`）并置灰。旁边有一个小的 **Auto / Manual** 开关控制：
+
+- **Auto**（默认）：会话按 plan 模式自动分流（Plan/Act 双模型），模型列表不可选。
+- **Manual**：会话使用你在列表里手动选择的模型，Plan/Act 分流暂时关闭，直到你切回 Auto。
+
+在 Manual 下选择模型也会把该会话切换到手动模式。这由 host 侧的 `autoRouting` 每会话状态驱动，无需重启即可作用于每个工作区。
+
 ### 怎么自定义
 
 两个槽位是一个用户自有的设置段，热发布生效（编辑后下一个请求就生效，无需重启）。编辑 `%USERPROFILE%\.dsh\settings.yaml`：

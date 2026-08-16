@@ -62,6 +62,38 @@
   transform: rotate(180deg);
 }
 
+/* Plan/Act auto-routing vs manual toggle, shown beside the model trigger
+   (only while a session is addressable). "Auto" (routing on) is a subtle
+   filled chip; "Manual" (routing off) is an outlined chip. */
+.autoToggle {
+  flex: 0 0 auto;
+  height: 28px;
+  padding: 0 8px;
+  border: 1px solid var(--dsw-alias-border-l2);
+  border-radius: 24px;
+  outline: none;
+  background: transparent;
+  color: var(--dsw-alias-label-secondary);
+  font-size: 12px;
+  line-height: 20px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.autoToggle:hover:not(:disabled) {
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+
+.autoToggle:disabled {
+  color: var(--dsw-alias-label-dimmed);
+  cursor: default;
+}
+
+.autoOn {
+  background: var(--dsw-alias-bg-layer-2);
+  border-color: transparent;
+}
+
 .menu {
   position: absolute;
   right: 0;

@@ -27,6 +27,7 @@ import {
   sessionRenameRequestSchema,
   sessionSearchRequestSchema,
   sessionSelectModelRequestSchema,
+  sessionSetAutoRoutingRequestSchema,
   sessionUpdateQueueRequestSchema,
 } from '../api/sessions.schema.ts'
 import {
@@ -94,6 +95,7 @@ const UNARY_ROUTES: UnaryRoutes = {
   'session.history': { schema: sessionHistoryRequestSchema, invoke: (api, r) => api.sessions.history(r) },
   'session.models': { schema: sessionModelsRequestSchema, invoke: (api, r) => api.sessions.models(r) },
   'session.selectModel': { schema: sessionSelectModelRequestSchema, invoke: (api, r) => api.sessions.selectModel(r) },
+  'session.setAutoRouting': { schema: sessionSetAutoRoutingRequestSchema, invoke: (api, r) => api.sessions.setAutoRouting(r) },
   'session.rename': { schema: sessionRenameRequestSchema, invoke: (api, r) => api.sessions.rename(r) },
   'session.fork': { schema: sessionForkRequestSchema, invoke: (api, r) => api.sessions.fork(r) },
   'session.prompt': { schema: sessionPromptRequestSchema, invoke: (api, r) => api.sessions.prompt(r) },

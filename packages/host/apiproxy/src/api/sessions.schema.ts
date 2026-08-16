@@ -249,10 +249,23 @@ export const sessionModelsRequestSchema = z.object({
 /** session.models response value. */
 export const sessionModelsValueSchema = z.object({
   current: modelSelectionSchema,
+  autoRouting: z.boolean(),
   routable: z.boolean(),
   groups: z.array(modelProviderGroupSchema),
   failures: z.array(modelCatalogFailureSchema),
 }) satisfies z.ZodType<Wire<ResponseValue<'session.models'>>>
+
+/** session.setAutoRouting request payload. */
+export const sessionSetAutoRoutingRequestSchema = z.object({
+  sessionId: sessionIdSchema,
+  autoRouting: z.boolean(),
+}) as unknown as z.ZodType<RequestPayload<'session.setAutoRouting'>>
+
+/** session.setAutoRouting response value. */
+export const sessionSetAutoRoutingValueSchema = z.object({
+  autoRouting: z.boolean(),
+  current: modelSelectionSchema,
+}) satisfies z.ZodType<Wire<ResponseValue<'session.setAutoRouting'>>>
 
 /** session.selectModel request payload. */
 export const sessionSelectModelRequestSchema = z.object({

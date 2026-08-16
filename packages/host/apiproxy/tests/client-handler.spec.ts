@@ -45,12 +45,17 @@ function scriptedApi(overrides: {
       }),
       models: r => ok(r, {
         current: { provider: 'deepseek-official', model: 'deepseek-v4-flash' },
+        autoRouting: true,
         routable: true,
         groups: [],
         failures: [],
       }),
       selectModel: r => ok(r, {
         selected: { provider: r.payload.provider, model: r.payload.model },
+      }),
+      setAutoRouting: r => ok(r, {
+        autoRouting: r.payload.autoRouting,
+        current: { provider: 'deepseek-official', model: 'deepseek-v4-flash' },
       }),
       rename: r => ok(r, { title: 'renamed', seq: 0 }),
       fork: r => ok(r, { sessionId: sid('s-fork') }),

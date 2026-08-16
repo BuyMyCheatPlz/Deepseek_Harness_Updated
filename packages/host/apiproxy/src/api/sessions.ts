@@ -153,6 +153,14 @@ export interface SessionModels {
   /** Model selection for the session's next assembled step. */
   current: ModelSelection
   /**
+   * Whether the session routes models automatically by plan mode
+   * (Plan = reasoning slot, Act = execution slot) rather than using a
+   * manually chosen model. When `true` the composer model seat is read-only
+   * and `current` reflects the effective routing result; when `false` the
+   * seat is editable and `current` is the manual pick.
+   */
+  autoRouting: boolean
+  /**
    * Whether an adapter currently serves `current.provider`, and therefore
    * whether this session can start a turn at all. Deliberately NOT derivable
    * from `groups`: catalog membership is advisory, so a route serving a model
@@ -300,6 +308,19 @@ export interface SessionsApi {
     reasoningEffort?: string
   }>):
   Promise<RpcResponse<{ selected: ModelSelection }>>
+
+  /**
+   * Switches whether this session routes models automatically by plan mode.
+   * When turning automatic routing on, any manual pick is cleared and the plan
+   * mode determines the model (Plan = reasoning slot, Act = execution slot);
+   * when turning it off, the next manual selection takes effect. Returns the
+   * resulting autoRouting flag and the now-effective model.
+   */
+  setAutoRouting(request: RpcRequest<{
+    sessionId: SessionId
+    autoRouting: boolean
+  }>):
+  Promise<RpcResponse<{ autoRouting: boolean; current: ModelSelection }>>
 
   /**
    * Renames a session: appends a `session/title` event with the `user`

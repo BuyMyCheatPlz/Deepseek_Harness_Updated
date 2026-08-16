@@ -63,6 +63,7 @@ function fakeApi(overrides: Partial<{ muxFrames: MuxFrame[]; hostFrames: HostFra
             ok: true,
             value: {
               current: { provider: 'deepseek-official', model: 'deepseek-v4-flash' },
+              autoRouting: true,
               routable: true,
               groups: [],
               failures: [],
@@ -83,6 +84,18 @@ function fakeApi(overrides: Partial<{ muxFrames: MuxFrame[]; hostFrames: HostFra
                   ? {}
                   : { reasoningEffort: request.payload.reasoningEffort },
               },
+            },
+          },
+        }
+      },
+      async setAutoRouting(request) {
+        return {
+          rpcId: request.rpcId,
+          result: {
+            ok: true,
+            value: {
+              autoRouting: request.payload.autoRouting,
+              current: { provider: 'deepseek-official', model: 'deepseek-v4-flash' },
             },
           },
         }

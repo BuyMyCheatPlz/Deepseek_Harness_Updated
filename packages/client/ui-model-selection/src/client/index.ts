@@ -169,6 +169,10 @@ export function apply(ctx: ClientContext): void {
           select: (selection: ModelSelection) => available
             ? directory.select(selection).then(() => true, () => false)
             : Promise.resolve(false),
+          setAutoRouting: (autoRouting: boolean) => {
+            if (!available) return Promise.resolve()
+            return directory.setAutoRouting(autoRouting)
+          },
         }
       },
     }, ModelSelect))

@@ -4,7 +4,7 @@
 
 为 harness Agent 提供基于模式的模型分流：plan 模式开启时（Cline 风格的「Plan」）**推理**槽位服务每一步，plan 模式关闭后（Cline 风格的「Act」）**执行**槽位服务每一步——在计划/执行的分界上完成一次干净的 pro→flash 交接。
 
-该路由器是「按需启用」的。插件会挂载 `ctx.modelRouter`，但在用户自有的 `agent-model-router` 设置段同时给出两个槽位之前，`route()` 返回 `undefined`——因此未配置的路由器不改变任何行为，单一的 `agent-default-model` 行为保持不变。安装了 `@deepseek-ai/dsh-agent` 的 `installModelSelection` 的入口点，会在每次请求时读取 `ctx.modelRouter.route(payload)`，把实时的 `foldPlanMode(agent.session.events)` 状态喂给它，并通过既有的模型选择缝隙应用返回的槽位；用户在 composer 中显式选择的模型优先于路由。
+该路由器是「按需启用」的。插件会挂载 `ctx.modelRouter`，但在用户自有的 `agent-model-router` 设置段同时给出两个槽位之前，`route()` 返回 `undefined`——因此未配置的路由器不改变任何行为，单一的 `agent-default-model` 行为保持不变。安装了 `@deepseek-ai/dsh-agent` 的 `installModelSelection` 的入口点，会在每次请求时读取 `ctx.modelRouter.route(payload)`，把实时的 `foldPlanMode(agent.session.events)` 状态喂给它，并通过既有的模型选择缝隙应用返回的槽位。在 Web 入口点，显式选择模型会把会话切到手动模式（host 端 `autoRouting: false`），此后路由器不再生效，直到用户切回 Auto——见 [Windows 应用 README](../../../apps/windows/README.md) 的 Auto/Manual 开关。
 
 ## 模式切换如何工作
 
