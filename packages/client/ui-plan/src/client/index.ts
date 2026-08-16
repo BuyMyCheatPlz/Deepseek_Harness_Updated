@@ -37,29 +37,36 @@ export interface PlanChipInjected {
    * @returns null on admitted execution; a user-visible failure line otherwise.
    */
   exitPlanMode: () => Promise<string | null>
+  /**
+   * Enter plan mode by executing /plan.
+   * @returns null on admitted execution; a user-visible failure line otherwise.
+   */
+  enterPlanMode: () => Promise<string | null>
 }
 
 /** Required services: the seat's slot registry, commands Remote, and locale registry. */
 export const inject = ['slots', 'remote', 'remote.commands', 'locale']
 
 /**
- * Client plugin body: register the plan chip over the command channel.
+ * Client plugin body: register the plan/act toggle over the command channel.
  * @param ctx - client root context.
  */
 export function apply(ctx: ClientContext): void {
   ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'ui-plan: dictionaries')
 
+  const run = async (sessionId: SessionId, command: string): Promise<string | null> => {
+    const result = await ctx.remote.commands.execute(sessionId, command)
+    if (!result.ok) return `${result.error.message} (${result.error.code})`
+    if (result.value === undefined) return `unknown command: ${command}`
+    return null
+  }
+
   ctx.slots.inject('conversation.input.plan', () => ctx.slots.register({
     name: 'conversation.input.plan',
     locale: NS,
     inject: (sessionId: SessionId): PlanChipInjected => ({
-      // Failure strings stay English (error-surface policy: not localized).
-      exitPlanMode: async () => {
-        const result = await ctx.remote.commands.execute(sessionId, '/plan off')
-        if (!result.ok) return `${result.error.message} (${result.error.code})`
-        if (result.value === undefined) return 'unknown command: /plan off'
-        return null
-      },
+      exitPlanMode: () => run(sessionId, '/plan off'),
+      enterPlanMode: () => run(sessionId, '/plan'),
     }),
   }, PlanChip))
 }

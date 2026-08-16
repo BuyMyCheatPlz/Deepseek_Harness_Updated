@@ -6,32 +6,56 @@
   gap: 6px;
 }
 
-.chip {
+/* Plan mode active: warn-state pill. */
+.chipOn {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  min-width: 34px;
-  padding: 2px 8px;
+  min-width: 40px;
+  padding: 2px 10px;
   border: none;
   border-radius: 999px;
-  background: var(--dsw-alias-state-warn-tertiary);
-  color: var(--dsw-alias-state-warn-label);
   font-size: 13px;
   font-weight: 500;
   line-height: 20px;
   cursor: pointer;
+  background: var(--dsw-alias-state-warn-tertiary);
+  color: var(--dsw-alias-state-warn-label);
 }
 
-.chip:hover:not(:disabled) {
+/* Act (plan off): neutral pill. */
+.chipOff {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 40px;
+  padding: 2px 10px;
+  border: none;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 20px;
+  cursor: pointer;
+  background: var(--dsw-alias-bg-layer-2);
+  color: var(--dsw-alias-label-secondary);
+}
+
+.chipOn:hover:not(:disabled) {
   color: var(--dsw-alias-state-warn-primary);
 }
 
-.chip:focus-visible {
+.chipOff:hover:not(:disabled) {
+  color: var(--dsw-alias-label-primary);
+}
+
+.chipOn:focus-visible,
+.chipOff:focus-visible {
   outline: 2px solid var(--dsw-alias-state-warn-label);
   outline-offset: 2px;
 }
 
-.chip:disabled {
+.chipOn:disabled,
+.chipOff:disabled {
   opacity: 0.6;
   cursor: default;
 }
