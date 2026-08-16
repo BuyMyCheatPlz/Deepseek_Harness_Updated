@@ -271,27 +271,20 @@ jobs:
             echo "::error::no Windows setup asset found under dist/"
             exit 1
           fi
-          NOTES=$(cat <<EOF
-DeepSeek Harness ${VERSION} — Windows x64 自包含安装包（本 fork 构建）
-
-## 特性
-- Plan/Act 双模型分流：Plan 模式用 deepseek-v4-pro 思考，Act 模式用 deepseek-v4-flash 执行（Cline 风格）
-- 模型选择器 Auto/Manual 开关：一键在「自动分流」与「手动选模型」之间切换
-- 自包含：内置便携 Node.js 22 与 WebView2 运行时，无需预装 Node 或任何工具链
-
-## 安装
-1. 下载 DeepSeek-Harness-Setup-${VERSION}.exe
-2. 双击按向导安装到 %ProgramFiles%\\DeepSeek Harness
-3. 从开始菜单启动（可选桌面快捷方式）
-
-## 卸载
-设置 → 应用 → DeepSeek Harness → 卸载
-
-## 说明
-- 上游 npm 的 @deepseek-ai/dsh 不含以上 fork 特性（Plan/Act 分流、Auto/Manual 开关）
-- 重新打包/更新方法见 apps/windows/README.md（rebundle.ps1 与安装版构建）
-EOF
-)
+          NOTES="DeepSeek Harness ${VERSION} — Windows x64 自包含安装包（本 fork 构建）"
+          NOTES+=$'\n\n## 特性'
+          NOTES+=$'\n- Plan/Act 双模型分流：Plan 模式用 deepseek-v4-pro 思考，Act 模式用 deepseek-v4-flash 执行（Cline 风格）'
+          NOTES+=$'\n- 模型选择器 Auto/Manual 开关：一键在「自动分流」与「手动选模型」之间切换'
+          NOTES+=$'\n- 自包含：内置便携 Node.js 22 与 WebView2 运行时，无需预装 Node 或任何工具链'
+          NOTES+=$'\n\n## 安装'
+          NOTES+=$'\n1. 下载 DeepSeek-Harness-Setup-${VERSION}.exe'
+          NOTES+=$'\n2. 双击按向导安装到 %ProgramFiles%\\DeepSeek Harness'
+          NOTES+=$'\n3. 从开始菜单启动（可选桌面快捷方式）'
+          NOTES+=$'\n\n## 卸载'
+          NOTES+=$'\n设置 → 应用 → DeepSeek Harness → 卸载'
+          NOTES+=$'\n\n## 说明'
+          NOTES+=$'\n- 上游 npm 的 @deepseek-ai/dsh 不含以上 fork 特性（Plan/Act 分流、Auto/Manual 开关）'
+          NOTES+=$'\n- 重新打包/更新方法见 apps/windows/README.md（rebundle.ps1 与安装版构建）'
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" dist/DeepSeek-Harness-Setup-*.exe --clobber
           else
