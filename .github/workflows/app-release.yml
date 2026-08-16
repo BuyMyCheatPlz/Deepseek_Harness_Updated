@@ -237,7 +237,10 @@ jobs:
   publish:
     name: Publish to GitHub Release
     if: ${{ github.event_name == 'push' && github.ref_type == 'tag' || inputs.publish }}
-    needs: [build-macos, build-windows]
+    # Only Windows is built in this fork (build-macos is if: false). A skipped
+    # `needs` job skips its dependents, so naming build-macos here would skip
+    # publish and never create the Release.
+    needs: [build-windows]
     runs-on: ubuntu-latest
     permissions:
       contents: write
