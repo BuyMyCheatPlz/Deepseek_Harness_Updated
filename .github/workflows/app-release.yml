@@ -268,15 +268,33 @@ jobs:
             echo "::error::no Windows setup asset found under dist/"
             exit 1
           fi
-          NOTES="DeepSeek Harness ${VERSION} Windows installer (x64), built from this fork."
-          NOTES+=$'\n\n- Run DeepSeek-Harness-Setup-${VERSION}.exe to install. The installer bundles a portable Node.js runtime and the web UI, so no Node.js or toolchain is required.'
-          NOTES+=$'\n- Includes the fork additions: Plan/Act dual-model routing (Plan → deepseek-v4-pro, Act → deepseek-v4-flash) and the model selector\'s Auto/Manual toggle.'
-          NOTES+=$'\n- To re-apply the fork bundle after a rebuild, see `apps/windows/rebundle.ps1` (usage and update method in `apps/windows/README.md`).'
+          NOTES=$(cat <<EOF
+DeepSeek Harness ${VERSION} — Windows x64 自包含安装包（本 fork 构建）
+
+## 特性
+- Plan/Act 双模型分流：Plan 模式用 deepseek-v4-pro 思考，Act 模式用 deepseek-v4-flash 执行（Cline 风格）
+- 模型选择器 Auto/Manual 开关：一键在「自动分流」与「手动选模型」之间切换
+- 自包含：内置便携 Node.js 22 与 WebView2 运行时，无需预装 Node 或任何工具链
+
+## 安装
+1. 下载 DeepSeek-Harness-Setup-${VERSION}.exe
+2. 双击按向导安装到 %ProgramFiles%\\DeepSeek Harness
+3. 从开始菜单启动（可选桌面快捷方式）
+
+## 卸载
+设置 → 应用 → DeepSeek Harness → 卸载
+
+## 说明
+- 上游 npm 的 @deepseek-ai/dsh 不含以上 fork 特性（Plan/Act 分流、Auto/Manual 开关）
+- 重新打包/更新方法见 apps/windows/README.md（rebundle.ps1 与安装版构建）
+EOF
+)
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" dist/DeepSeek-Harness-Setup-*.exe --clobber
           else
             gh release create "$TAG" dist/DeepSeek-Harness-Setup-*.exe --title "DeepSeek Harness ${VERSION}" --notes "$NOTES"
           fi
           # A tag deleted and recreated (tag moves) leaves the release untagged
-          # and draft; publish it so the asset is visible.
-          gh release edit "$TAG" --draft=false >/dev/null 2>&1 || true
+          # and draft with stale notes; (re)apply notes and publish so the asset
+          # and description are both visible.
+          gh release edit "$TAG" --notes "$NOTES" --draft=false >/dev/null 2>&1 || true
