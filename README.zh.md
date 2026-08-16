@@ -34,6 +34,17 @@ pnpm run build
 pnpm dsh web
 ```
 
+### Windows 桌面应用（exe）
+
+仓库提供开箱即用的 Windows 桌面启动器，位于 `apps/windows/build`（双击 `DeepSeek Harness.exe` 即可）。它把 `dsh web` 包装进内嵌的 WebView2 窗口，并内置 Plan/Act 双模型分流，详见 [Windows 应用 README](apps/windows/README.md)。在新电脑上部署和使用：
+
+- 安装 Node.js 22.19 或更高版本（或 24+）；Microsoft Edge WebView2 运行时随 Windows 11 与大多数 Windows 10 自带。
+- 把整个 `apps/windows/build` 文件夹（或仓库根目录的 `DeepSeek-Harness-dual-model-router-windows-x64.zip`）拷贝到新电脑，双击 `DeepSeek Harness.exe`。
+- 首次启动时，在「设置 → 模型」填入你的 DeepSeek API key——它会被存到 `%USERPROFILE%\.dsh\.credentials.yaml`。
+- 使用输入区的 Plan/Act 开关：`Plan` 用 `deepseek-v4-pro`，`Act` 用 `deepseek-v4-flash`。
+
+Windows 启动器的构建、配置、日志与自更新详见 [apps/windows/README.md](apps/windows/README.md)；注意从源码用 `build.ps1 -BundleDsh` 重建会重装上游 npm 的 `@deepseek-ai/dsh`，**必须**再跑一次 `apps/windows/rebundle.ps1` 以重新套用本 fork 的分流改动（见其中的重新打包注意）。
+
 ## 社区与支持
 
 - 欢迎通过 [GitHub Discussions](https://github.com/deepseek-ai/deepseek-harness/discussions) 提交反馈或 bug 报告。

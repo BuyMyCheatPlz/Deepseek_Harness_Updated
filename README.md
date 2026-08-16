@@ -34,6 +34,17 @@ pnpm run build
 pnpm dsh web
 ```
 
+### Windows desktop app (exe)
+
+A ready-to-run Windows desktop launcher is built under `apps/windows/build` (double-click `DeepSeek Harness.exe`). It wraps `dsh web` in an embedded WebView2 window and ships the Plan/Act dual-model routing described in [the Windows app README](apps/windows/README.md). To deploy and use it on a new machine:
+
+- Install Node.js 22.19 or newer (or 24+); the Microsoft Edge WebView2 runtime ships with Windows 11 and most Windows 10 installs.
+- Copy the whole `apps/windows/build` folder (or the `DeepSeek-Harness-dual-model-router-windows-x64.zip` in the repo root) to the new machine and double-click `DeepSeek Harness.exe`.
+- On first launch, enter your DeepSeek API key in Settings → Models — it is stored in `%USERPROFILE%\.dsh\.credentials.yaml`.
+- Use the composer's Plan/Act toggle: `Plan` runs `deepseek-v4-pro`, `Act` runs `deepseek-v4-flash`.
+
+The Windows launcher's build, configuration, logs, and self-update are documented in [apps/windows/README.md](apps/windows/README.md); note that rebuilding from source with `build.ps1 -BundleDsh` reinstalls the upstream npm `@deepseek-ai/dsh` and must be followed by `apps/windows/rebundle.ps1` to re-apply this fork's routing changes (see the Rebuild note there).
+
 ## Community and support
 
 - Feel free to submit feedback or bug reports through [GitHub Discussions](https://github.com/deepseek-ai/deepseek-harness/discussions).
