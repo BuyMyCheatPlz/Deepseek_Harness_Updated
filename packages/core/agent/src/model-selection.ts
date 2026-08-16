@@ -24,11 +24,11 @@ export interface ModelSelectionRef {
   assembled: ModelSelection | undefined
   /**
    * Optional per-step override resolved at request time, before the fallback to
-   * {@link assembled}. `step` is 1-based within a turn, so a router can send the
-   * first (reasoning) step and its tool-continuation steps to different models.
+   * {@link assembled}. Receives the `agent/request` payload, so a router can
+   * inspect the turn/step or the live Agent (e.g. fold plan mode state).
    * Absent, every step uses the assembled selection as before.
    */
-  route?: (payload: { turn: number; step: number }) => ModelSelection | undefined
+  route?: (payload: { agent: unknown; turn: number; step: number }) => ModelSelection | undefined
 }
 
 /**

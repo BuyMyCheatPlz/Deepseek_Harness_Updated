@@ -94,14 +94,19 @@ export class ModelRouter extends Service {
   }
 
   /**
-   * The model slot one step uses. `step` is 1-based within a turn: the first
-   * step reasons, every later tool-continuation step executes.
+   * The model slot one request uses. In plan mode (Cline-style Plan) the
+   * reasoning slot serves every step; otherwise the execution slot serves
+   * every step. When plan state is unknown (either mode omitted), fall back to
+   * the step rule: a turn's first step reasons, later tool-continuation steps
+   * execute.
+   * @param payload.planActive - whether plan mode is currently on; `undefined` when unknown.
    * @param payload.step - 1-based step number within the current turn.
    * @returns the selected slot, or `undefined` when either slot is unset.
    */
-  route(payload: { step: number }): ModelSelection | undefined {
+  route(payload: { planActive?: boolean; step: number }): ModelSelection | undefined {
     const { reasoning, execution } = this.source()
     if (reasoning === undefined || execution === undefined) return undefined
+    if (payload.planActive !== undefined) return toSelection(payload.planActive ? reasoning : execution)
     return toSelection(payload.step <= 1 ? reasoning : execution)
   }
 }

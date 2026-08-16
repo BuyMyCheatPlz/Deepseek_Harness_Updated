@@ -25,10 +25,10 @@ apps/windows/build.ps1 -BundleDsh -DshVersion 0.1.0-rc.6
 
 ### 重新打包注意
 
-`build.ps1 -BundleDsh` 装的是 **上游** `@deepseek-ai/dsh`（来自 npm），其中**不包含**本 fork 的[双模型分流](#双模型分流)改动。每次重新执行 `-BundleDsh` 后，需要用 `apps/windows/rebundle.ps1` 重新套用本地改动：
+`build.ps1 -BundleDsh` 装的是 **上游** `@deepseek-ai/dsh`（来自 npm），其中**不包含**本 fork 的模型路由改动。每次重新执行 `-BundleDsh` 后，需要用 `apps/windows/rebundle.ps1` 重新套用本地改动：
 
 ```powershell
-npx --yes pnpm@11.7.0 run build:lib:host   # 先构建本 fork 的各包
+npx --yes pnpm@11.7.0 run build:lib:host   # build the fork's packages
 powershell -ExecutionPolicy Bypass -File apps/windows/build.ps1 -BundleDsh -DshVersion 0.1.0-rc.6
 powershell -ExecutionPolicy Bypass -File apps/windows/rebundle.ps1
 ```
@@ -38,7 +38,7 @@ powershell -ExecutionPolicy Bypass -File apps/windows/rebundle.ps1
 ## 工作方式
 
 1. 启动时应用解析 `dsh`（其 `lib/bin.js`）与 `node` 可执行文件——`dshPath`/`nodePath` 注册表值，其次是 exe 旁的内嵌安装，最后是按 PATH 风格的搜索，包括 `%APPDATA%\npm`、Program Files、nvm-windows、Volta、bun 与 npx 缓存。
-2. 服务端启动前，它会检查是否有新版本（见[更新检查与自更新](#更新检查与自更新)）；服务端会等待检查与任何已确认的更新完成后再启动。
+2. 服务端启动前，它会检查是否有新版本（见下文「更新检查与自更新」）；服务端会等待检查与任何已确认的更新完成后再启动。
 3. 它以无控制台窗口的子进程形式拉起 `node <dsh> web`，服务端输出追加到 server.log。
 4. 一旦 `127.0.0.1:<端口>` 接受连接，内嵌的 WebView2 控件就加载服务地址。系统浏览器只会在点「Open in Browser」按钮或启用 `openBrowserOnLaunch` 设置时打开。
 5. 退出——关闭窗口、Quit 按钮，或被 `taskkill /PID`（WM_CLOSE）关闭窗口——会杀掉服务端的进程树（`taskkill /PID <pid> /T /F`），等待端口释放（最多 6 秒），并且只触碰应用自己拉起的进程树。Windows 没有 SIGTERM，因此这是硬终止而不是 macOS 的优雅收尾；端口仍然会释放。
@@ -59,28 +59,31 @@ powershell -ExecutionPolicy Bypass -File apps/windows/rebundle.ps1
 - `DeepSeek Harness.exe --check-update` —— 打印 `current`、`latest`、`source` 后退出。
 - `DeepSeek Harness.exe --update [版本]` —— 无界面执行自更新（未给版本时取最新），然后退出。
 
-## 双模型分流
+## Plan/Act 双模型分流（Cline 风格）
 
-Web profile 内置了 `@deepseek-ai/dsh-model-router` 插件，把对话的每一步路由到两个模型中的一个：回合第 1 步用**推理**模型，之后的工具续作步骤用**执行**模型。它自动生效，使用无需任何配置，且适用于每个会话——除非你在 composer 里显式选了模型（显式选择在该会话中优先）。
+Web profile 内置了 `@deepseek-ai/dsh-model-router` 插件，它根据会话的 **plan 模式**从两个模型中选一个：plan 模式开启时（Cline 风格的「Plan」）每个请求都用**推理**模型；plan 模式关闭后（Cline 风格的「Act」）每个请求都用**执行**模型。它适用于每个会话——除非你在 composer 里显式选了模型（显式选择在该会话中优先）。
 
 ### 默认槽位
 
 出厂默认值在 `packages/bundle/web-app/cordis.patch.yml`：
 
-| 槽位 | 步骤范围 | 模型 |
+| 模式 | 槽位 | 模型 |
 |---|---|---|
-| reasoning | 回合第 1 步 | `deepseek-v4-pro`，`reasoningEffort: high` |
-| execution | 每个工具结果之后的步骤 | `deepseek-v4-flash`，`reasoningEffort: off` |
+| plan 开启 | reasoning | `deepseek-v4-pro`，`reasoningEffort: high` |
+| plan 关闭 | execution | `deepseek-v4-flash`，`reasoningEffort: off` |
 
-即：先由 `deepseek-v4-pro` 读懂你的请求、规划工作，然后每一轮工具往返交给 `deepseek-v4-flash` 去执行——在重推理已完成之后使用更快更省的模型。
+即：在 plan 模式下先用 `deepseek-v4-pro` 读懂请求、制定计划；离开 plan 模式后，让经过批准的计划由 `deepseek-v4-flash` 执行——每个模式内模型固定，在计划/执行的分界上干净地切换。
 
 ### 怎么用
+
+- **plan 模式开启**（`/plan`、composer 的 Plan 芯片，或让 agent 调用 `exit_plan_mode` 提交计划）→ 请求走 `deepseek-v4-pro`。
+- **plan 模式关闭**（默认；或 `exit_plan_mode` 被批准后 / `/plan off` / Plan 芯片）→ 请求走 `deepseek-v4-flash`。
 
 启动时无需任何操作：打开 `DeepSeek Harness.exe`，分流就已生效。可以从会话记录里确认（每个模型请求都会在它的 `request/header` 事件中记录 `provider` / `model` / `reasoningEffort`）。
 
 ### 怎么自定义
 
-两个槽位是一个用户自有的设置段，热发布生效（编辑后下一步就生效，无需重启）。编辑 `%USERPROFILE%\.dsh\settings.yaml`：
+两个槽位是一个用户自有的设置段，热发布生效（编辑后下一个请求就生效，无需重启）。编辑 `%USERPROFILE%\.dsh\settings.yaml`：
 
 ```yaml
 agent-model-router:
@@ -98,10 +101,11 @@ agent-model-router:
 - 要关闭分流、回到单一模型：删除整个 `agent-model-router` 段（回退到单一的 `agent-default-model`），或把两个槽位设成同一个模型。
 - 每个槽位的 `provider` / `model` 必填；`provider` 必须是你已配置的 adapter 路由（如 DeepSeek adapter 的 `deepseek-official`）。
 - 在 composer 里手动选择的模型会优先于分流。
+- 从未进入 plan 模式的会话始终用 `execution` 槽位，所以「Act 恒 flash」是默认行为。
 
 ### 代码位置
 
-插件在 `packages/core/model-router`，接入点在 `packages/host/apiproxy/src/api-proxy.ts` 的按步模型选择处（以及 `packages/bundle/headless` 的直接驱动入口）。这是**本地 fork 新增**，尚未进入 npm 上游 `@deepseek-ai/dsh` 包——见[重新打包注意](#重新打包注意)。
+插件在 `packages/core/model-router`，接入点在 `packages/host/apiproxy/src/api-proxy.ts` 的按请求模型选择处，通过 `@deepseek-ai/dsh-plan-mode` 的 `foldPlanMode` 折出 plan 状态（`headless` 直接驱动入口则回退到步骤规则）。这是**本地 fork 新增**，尚未进入 npm 上游 `@deepseek-ai/dsh` 包——见上文「重新打包注意」。
 
 ## 配置
 

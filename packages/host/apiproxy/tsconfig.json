@@ -45,6 +45,9 @@
       "path": "../../core/model-router"
     },
     {
+      "path": "../../plan/plan-mode"
+    },
+    {
       "path": "../../preset/agent-presets"
     },
     {

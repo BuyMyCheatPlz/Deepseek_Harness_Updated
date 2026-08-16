@@ -25,7 +25,7 @@ apps/windows/build.ps1 -BundleDsh -DshVersion 0.1.0-rc.6
 
 ### Rebuild note
 
-`build.ps1 -BundleDsh` installs the **upstream** `@deepseek-ai/dsh` from npm, which does **not** contain this fork's [dual-model routing](#dual-model-routing) changes. After a rebuild that re-runs `-BundleDsh`, re-apply the local changes with `apps/windows/rebundle.ps1`:
+`build.ps1 -BundleDsh` installs the **upstream** `@deepseek-ai/dsh` from npm, which does **not** contain this fork's model-router routing changes. After a rebuild that re-runs `-BundleDsh`, re-apply the local changes with `apps/windows/rebundle.ps1`:
 
 ```powershell
 npx --yes pnpm@11.7.0 run build:lib:host   # build the fork's packages
@@ -38,7 +38,7 @@ powershell -ExecutionPolicy Bypass -File apps/windows/rebundle.ps1
 ## How it works
 
 1. On launch the app resolves the `dsh` (its `lib/bin.js`) and `node` executables — the `dshPath`/`nodePath` registry values, then a bundled install beside the exe, then a PATH-style search including `%APPDATA%\npm`, Program Files, nvm-windows, Volta, bun, and the npx cache.
-2. Before the server starts, it checks for a newer version (see [Update check and self-update](#update-check-and-self-update)); the server waits for the check and any confirmed update to finish.
+2. Before the server starts, it checks for a newer version (see Update check and self-update below); the server waits for the check and any confirmed update to finish.
 3. It spawns `node <dsh> web` as a child process with no console window, appending the server's output to the server log.
 4. Once `127.0.0.1:<port>` accepts connections, the embedded WebView2 control loads the served URL. The system browser opens only through the "Open in Browser" button or the opt-in `openBrowserOnLaunch` setting.
 5. Quitting — closing the window, the Quit button, or the window being closed by `taskkill /PID` (WM_CLOSE) — kills the server's process tree (`taskkill /PID <pid> /T /F`), waits for the port to free (up to 6s), and only ever touches the process tree the app itself spawned. Windows has no SIGTERM, so this is a hard terminate rather than the macOS graceful drain; the port is still released.
@@ -59,28 +59,31 @@ Headless diagnostics (exit without opening the UI):
 - `DeepSeek Harness.exe --check-update` — print `current`, `latest`, and `source`, then exit.
 - `DeepSeek Harness.exe --update [version]` — run the self-update (latest when no version is given), then exit.
 
-## Dual-model routing
+## Plan/Act dual-model routing (Cline-style)
 
-The web profile ships the `@deepseek-ai/dsh-model-router` plugin, which routes each step of a conversation to one of two models: a **reasoning** model for a turn's first step and an **execution** model for its later tool-continuation steps. It works automatically — no configuration is required to use it — and applies to every session unless you pick a model explicitly in the composer (an explicit pick wins for that session).
+The web profile ships the `@deepseek-ai/dsh-model-router` plugin, which picks one of two models based on the session's **plan mode**: while plan mode is active (Cline-style "Plan") every request uses the **reasoning** model; once plan mode is off (Cline-style "Act") every request uses the **execution** model. It applies to every session unless you pick a model explicitly in the composer (an explicit pick wins for that session).
 
 ### Default slots
 
 The shipped defaults live in `packages/bundle/web-app/cordis.patch.yml`:
 
-| Slot | Step range | Model |
+| Mode | Slot | Model |
 |---|---|---|
-| reasoning | step 1 of a turn | `deepseek-v4-pro`, `reasoningEffort: high` |
-| execution | every step after a tool result | `deepseek-v4-flash`, `reasoningEffort: off` |
+| plan on | reasoning | `deepseek-v4-pro`, `reasoningEffort: high` |
+| plan off | execution | `deepseek-v4-flash`, `reasoningEffort: off` |
 
-So the model reads your request and plans the work with `deepseek-v4-pro`, then executes each tool round trip with `deepseek-v4-flash` — cheaper and faster exactly where the heavy reasoning is already decided.
+So the model reads your request and plans the work with `deepseek-v4-pro` while in plan mode, then executes the approved plan with `deepseek-v4-flash` once you leave plan mode — the model stays fixed through each mode and switches cleanly at the plan/execute boundary.
 
 ### How to use
 
-There is nothing to do at launch: start `DeepSeek Harness.exe`, and routing is already active. You can confirm it from a session's transcript (each model request records `provider` / `model` / `reasoningEffort` in its `request/header` event).
+- **Plan mode on** (`/plan`, the composer Plan chip, or let the agent call `exit_plan_mode` to present a plan) → requests run on `deepseek-v4-pro`.
+- **Plan mode off** (default; or after `exit_plan_mode` is approved / `/plan off` / the Plan chip) → requests run on `deepseek-v4-flash`.
+
+There is nothing to do at launch: start `DeepSeek Harness.exe` and routing is active. You can confirm it from a session's transcript (each model request records `provider` / `model` / `reasoningEffort` in its `request/header` event).
 
 ### How to customize
 
-Both slots are a user-owned settings section that hot-publishes (an edit reaches the very next step, no restart). Edit `%USERPROFILE%\.dsh\settings.yaml`:
+Both slots are a user-owned settings section that hot-publishes (an edit reaches the very next request, no restart). Edit `%USERPROFILE%\.dsh\settings.yaml`:
 
 ```yaml
 agent-model-router:
@@ -98,10 +101,11 @@ agent-model-router:
 - To disable routing and go back to a single model, either delete the whole `agent-model-router` section (falling back to the single `agent-default-model` selection) or set both slots to the same model.
 - Per slot the `provider` / `model` pair is required; the route must exist in an adapter you have configured (e.g. `deepseek-official` from the DeepSeek adapter).
 - A model you pick in the composer overrides routing for that session.
+- A session that never enters plan mode always uses the `execution` slot, so "Act always flash" is the default.
 
 ### Where it lives
 
-The plugin is `packages/core/model-router`, wired into the web entry point's per-step model selection in `packages/host/apiproxy/src/api-proxy.ts` (and the headless driver in `packages/bundle/headless`). This is a **local fork addition**, not yet in the upstream npm `@deepseek-ai/dsh` package — see [Rebundle note](#rebundle-note).
+The plugin is `packages/core/model-router`, wired into the web entry point's per-request model selection in `packages/host/apiproxy/src/api-proxy.ts`, which folds `plan/mode` state via `@deepseek-ai/dsh-plan-mode`. This is a **local fork addition**, not yet in the upstream npm `@deepseek-ai/dsh` package — see the Rebuild note above.
 
 ## Configuration
 

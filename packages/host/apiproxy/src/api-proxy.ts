@@ -13,6 +13,7 @@ import type {} from '@deepseek-ai/dsh-agent-presets/types'
 // Type-only: resolves `ctx.get('modelRouter')` to the per-step router without a
 // value dependency, so a composition without the router still serves the Web UI.
 import type {} from '@deepseek-ai/dsh-model-router'
+import { foldPlanMode } from '@deepseek-ai/dsh-plan-mode'
 import { AttachmentError } from '@deepseek-ai/dsh-attachment'
 import type { ImageAttachmentRef } from '@deepseek-ai/dsh-attachment'
 import { contentHasImage, createUserMessage, freezeMessage, ReasoningEffortId } from '@deepseek-ai/dsh-llm'
@@ -1178,12 +1179,21 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
       },
       assembled: undefined,
       // An explicit composer pick wins; otherwise a configured model-router
-      // routes the first step of a turn to its reasoning model and the
-      // tool-continuation steps to its execution model, and an absent router
-      // (or one without both slots) leaves the assembled default in place.
-      route: payload => picked !== undefined
-        ? undefined
-        : ctx.get('modelRouter')?.route(payload),
+      // routes by plan mode: while plan mode is active (Cline-style Plan) the
+      // reasoning slot serves every step, and once it is off (Act) the
+      // execution slot does — a clean pro-to-flash handoff across the
+      // plan/execute boundary. An absent router (or one without both slots)
+      // leaves the assembled default in place.
+      route: (payload) => {
+        if (picked !== undefined) return undefined
+        const router = ctx.get('modelRouter')
+        if (router === undefined) return undefined
+        const agent = payload.agent as Partial<Agent> | undefined
+        return router.route({
+          step: payload.step,
+          planActive: foldPlanMode(agent?.session?.events ?? []),
+        })
+      },
     }
     installModelSelection(agent.ctx, selection)
     selections.set(agent, selection)
