@@ -49,7 +49,9 @@ MinVersion=10.0
 
 [Languages]
 Name: "en"; MessagesFile: "compiler:Default.isl"
-Name: "zh"; MessagesFile: "compiler:Languages\ChineseSimplified.isl"
+; Bundled in the repo (installer-languages/) because the choco Inno Setup
+; install does not ship the unofficial ChineseSimplified.isl translation.
+Name: "zh"; MessagesFile: "installer-languages\ChineseSimplified.isl"
 
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
