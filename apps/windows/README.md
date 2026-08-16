@@ -23,17 +23,20 @@ apps/windows/build.ps1 -BundleDsh -DshVersion 0.1.0-rc.6
 
 `-BundleDsh` installs `@deepseek-ai/dsh@<version>` into `build\dsh` (version from `-DshVersion` or the `DSH_BUNDLE_VERSION` environment variable, default `latest`). `-AppVersion` stamps the launcher's own version into the exe (defaults to `-DshVersion`, or `0.0.0` when the bundled dsh is `latest`); `-UpdateRepos` bakes in the semicolon-separated `owner/repo` list the startup update check queries (default `deepseek-ai/deepseek-harness`). The build also downloads the WebView2 SDK and places `Microsoft.Web.WebView2.Core.dll`, `Microsoft.Web.WebView2.WinForms.dll`, and the x64 `WebView2Loader.dll` beside the exe (pin the version with the `WEBVIEW2_SDK_VERSION` environment variable). The result is a folder with `DeepSeek Harness.exe`, the three WebView2 DLLs, and (when bundled) `dsh\` — zip that folder to distribute.
 
-### Rebuild note
+### Rebuild and update the fork bundle
 
-`build.ps1 -BundleDsh` installs the **upstream** `@deepseek-ai/dsh` from npm, which does **not** contain this fork's model-router routing changes. After a rebuild that re-runs `-BundleDsh`, re-apply the local changes with `apps/windows/rebundle.ps1`:
+`build.ps1 -BundleDsh` installs the **upstream** `@deepseek-ai/dsh` from npm, which does **not** contain this fork's changes — the Plan/Act dual-model router, the model selector's **Auto / Manual** toggle, and the `session.setAutoRouting` RPC that toggle drives all live only in this fork. Run `apps/windows/rebundle.ps1` after **every** rebuild that re-runs `-BundleDsh`, and after the in-app self-update atomically swaps the bundled `dsh\`:
 
 ```powershell
-npx --yes pnpm@11.7.0 run build:lib:host   # build the fork's packages
+npx --yes pnpm@11.7.0 run build:lib:host    # build the fork's packages
+npx --yes pnpm@11.7.0 run build:lib:client   # build the fork's browser bundles
 powershell -ExecutionPolicy Bypass -File apps/windows/build.ps1 -BundleDsh -DshVersion 0.1.0-rc.6
 powershell -ExecutionPolicy Bypass -File apps/windows/rebundle.ps1
 ```
 
-`rebundle.ps1` overlays the locally-built outputs of the changed packages (`dsh-agent`, `dsh-host-apiproxy`, `dsh-headless`, `dsh-web-app`), installs `dsh-model-router` beside them, and links it into the profile's module fallback so the loader resolves it.
+`rebundle.ps1` overlays the fork-built host packages (`dsh-agent`, `dsh-host-apiproxy`, `dsh-headless`, `dsh-web-app`) **and** the browser bundles — `dsh-client-connection` (carries the `setAutoRouting` wire method and the `autoRouting` response field), `dsh-client-ui-model-selection`, and `dsh-client-ui-plan` — installs `dsh-model-router` beside them, and links it into the profile's module fallback so the loader resolves it.
+
+Because the browser bundles are hashed and injected into the page at startup, **restart the app** (quit `DeepSeek Harness.exe` and reopen it) after rebundling so the new bundles actually load.
 
 ## How it works
 

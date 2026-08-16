@@ -23,17 +23,20 @@ apps/windows/build.ps1 -BundleDsh -DshVersion 0.1.0-rc.6
 
 `-BundleDsh` 会把 `@deepseek-ai/dsh@<版本>` 装进 `build\dsh`（版本来自 `-DshVersion` 或 `DSH_BUNDLE_VERSION` 环境变量，默认 `latest`）。`-AppVersion` 会把启动器自身版本写入 exe（默认取 `-DshVersion`，内嵌 dsh 为 `latest` 时取 `0.0.0`）；`-UpdateRepos` 会固化启动时更新检查所查询的、以分号分隔的 `owner/repo` 列表（默认 `deepseek-ai/deepseek-harness`）。构建还会下载 WebView2 SDK，把 `Microsoft.Web.WebView2.Core.dll`、`Microsoft.Web.WebView2.WinForms.dll` 与 x64 的 `WebView2Loader.dll` 放到 exe 旁（可用 `WEBVIEW2_SDK_VERSION` 环境变量固定版本）。产物是一个包含 `DeepSeek Harness.exe`、三个 WebView2 DLL 与（内嵌时）`dsh\` 的文件夹——打包该文件夹即可分发。
 
-### 重新打包注意
+### 重新打包与更新 fork 产物
 
-`build.ps1 -BundleDsh` 装的是 **上游** `@deepseek-ai/dsh`（来自 npm），其中**不包含**本 fork 的模型路由改动。每次重新执行 `-BundleDsh` 后，需要用 `apps/windows/rebundle.ps1` 重新套用本地改动：
+`build.ps1 -BundleDsh` 装的是 **上游** `@deepseek-ai/dsh`（来自 npm），其中**不包含**本 fork 的改动——Plan/Act 双模型分流、模型选择器的 **Auto / Manual** 开关、以及该开关驱动的 `session.setAutoRouting` RPC，都只存在于本 fork。每次重新执行会重跑 `-BundleDsh` 的构建、或应用内自更新原子替换了内嵌的 `dsh\` 之后，都要用 `apps/windows/rebundle.ps1` 重新套用：
 
 ```powershell
-npx --yes pnpm@11.7.0 run build:lib:host   # build the fork's packages
+npx --yes pnpm@11.7.0 run build:lib:host    # build the fork's packages
+npx --yes pnpm@11.7.0 run build:lib:client   # build the fork's browser bundles
 powershell -ExecutionPolicy Bypass -File apps/windows/build.ps1 -BundleDsh -DshVersion 0.1.0-rc.6
 powershell -ExecutionPolicy Bypass -File apps/windows/rebundle.ps1
 ```
 
-`rebundle.ps1` 会把改动过的包的本地构建产物覆盖回去（`dsh-agent`、`dsh-host-apiproxy`、`dsh-headless`、`dsh-web-app`），并把它旁边的 `dsh-model-router` 装好、链接进 profile 的模块回退目录，让 loader 能解析到它。
+`rebundle.ps1` 会把 fork 构建的 host 包（`dsh-agent`、`dsh-host-apiproxy`、`dsh-headless`、`dsh-web-app`）**以及**浏览器 bundle——`dsh-client-connection`（承载 `setAutoRouting` 方法与 `autoRouting` 响应字段）、`dsh-client-ui-model-selection`、`dsh-client-ui-plan`——的本地构建产物覆盖回去，把 `dsh-model-router` 装到旁边，并链接进 profile 的模块回退目录，让 loader 能解析到它。
+
+由于浏览器 bundle 在启动时会被哈希并注入页面，**重新打包后需要重启应用**（退出 `DeepSeek Harness.exe` 再重新打开），新 bundle 才会真正加载。
 
 ## 工作方式
 

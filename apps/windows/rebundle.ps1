@@ -22,6 +22,24 @@ Copy-Item (Join-Path $repo 'packages\host\apiproxy\lib\index.js')       (Join-Pa
 Copy-Item (Join-Path $repo 'packages\bundle\headless\lib\index.js')     (Join-Path $buildDsh 'dsh-headless\lib\index.js') -Force
 Copy-Item (Join-Path $repo 'packages\bundle\web-app\cordis.patch.yml')  (Join-Path $buildDsh 'dsh-web-app\cordis.patch.yml') -Force
 
+# 1b. Overlay the fork's browser bundles too. The wire client (dsh-client-connection)
+#     inlines the fetch carrier + the sessions value schemas, so it MUST be the
+#     fork build to expose session.setAutoRouting / the autoRouting response field
+#     (a stale upstream bundle drops the method and shelves the toggle into
+#     TypeError). The two UI bundles carry the Auto/Manual toggle UI.
+Copy-Item (Join-Path $repo 'packages\client\connection\lib\client.js')      (Join-Path $buildDsh 'dsh-client-connection\lib\client.js') -Force
+if (Test-Path (Join-Path $repo 'packages\client\connection\lib\client.js.map')) {
+  Copy-Item (Join-Path $repo 'packages\client\connection\lib\client.js.map') (Join-Path $buildDsh 'dsh-client-connection\lib\client.js.map') -Force
+}
+Copy-Item (Join-Path $repo 'packages\client\ui-model-selection\lib\client.js') (Join-Path $buildDsh 'dsh-client-ui-model-selection\lib\client.js') -Force
+if (Test-Path (Join-Path $repo 'packages\client\ui-model-selection\lib\client.js.map')) {
+  Copy-Item (Join-Path $repo 'packages\client\ui-model-selection\lib\client.js.map') (Join-Path $buildDsh 'dsh-client-ui-model-selection\lib\client.js.map') -Force
+}
+Copy-Item (Join-Path $repo 'packages\client\ui-plan\lib\client.js')          (Join-Path $buildDsh 'dsh-client-ui-plan\lib\client.js') -Force
+if (Test-Path (Join-Path $repo 'packages\client\ui-plan\lib\client.js.map')) {
+  Copy-Item (Join-Path $repo 'packages\client\ui-plan\lib\client.js.map')    (Join-Path $buildDsh 'dsh-client-ui-plan\lib\client.js.map') -Force
+}
+
 # 2. Install the new model-router package beside its siblings.
 $mrSrc = Join-Path $repo 'packages\core\model-router'
 $mrDst = Join-Path $buildDsh 'dsh-model-router'
