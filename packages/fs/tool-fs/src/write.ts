@@ -16,6 +16,31 @@ import { remediateFsError } from './error.ts'
 import { sessionResolveOptions } from './session-cwd.ts'
 import type { FsSandboxController } from './sandbox.ts'
 
+/** Fold plan mode from session events: the last `plan/mode` wins, default inactive. */
+function planModeActive(events: readonly { type: string; data: unknown }[]): boolean {
+  let active = false
+  for (const event of events) {
+    if (event.type === 'plan/mode') active = (event.data as { active?: boolean }).active === true
+  }
+  return active
+}
+
+/**
+ * Block a mutating tool while the calling agent's session is in plan mode.
+ * Reads plan state directly from the session log so `@deepseek-ai/dsh-plan-mode`
+ * needs no value import here (and no project-reference cascade into this build
+ * graph). Plan mode must be exited via an approved `exit_plan_mode` before any
+ * change lands.
+ * @param agent - the executing agent from `ToolExecution`, or `undefined` outside a session.
+ */
+function assertNotPlanMode(agent: { session: { events: readonly { type: string; data: unknown }[] } } | undefined): void {
+  if (agent !== undefined && planModeActive(agent.session.events)) {
+    throw new Error('plan mode is active — this mutating operation is blocked. '
+      + 'Present your complete plan via exit_plan_mode and get the user\'s approval to leave plan mode, '
+      + 'then (from act mode) perform the change.')
+  }
+}
+
 /**
  * Validate value constraints the schema DSL can't express: only a non-blank
  * `file_path` — an empty `content` is legitimate (it writes an empty file).
@@ -101,6 +126,9 @@ export function applyWriteTool(ctx: Context, sandbox: FsSandboxController): void
     },
     async execute(args: WriteToolArgs, exec) {
       const input = parseWriteArgs(args)
+      // Plan mode is a hard gate: no file mutation while the agent is still
+      // planning. Must exit plan mode (approved plan) before writing.
+      assertNotPlanMode(exec.agent)
       // Resolve the per-call sandbox policy (approved mode > session override
       // > backend default, plus the session cwd root) BEFORE anything executes;
       // an escalating call throws its distinct text on any non-grant.

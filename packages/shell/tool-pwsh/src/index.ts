@@ -100,6 +100,40 @@ function validatePwshArgs(args: PwshToolArgs): void {
 }
 /* jscpd:ignore-end */
 
+/** Fold plan mode from session events: the last `plan/mode` wins, default inactive. */
+function planModeActive(events: readonly { type: string; data: unknown }[]): boolean {
+  let active = false
+  for (const event of events) {
+    if (event.type === 'plan/mode') active = (event.data as { active?: boolean }).active === true
+  }
+  return active
+}
+
+/**
+ * Whether a pwsh command is a likely repository mutation. Used to enforce plan
+ * mode as a hard gate on the shell surface: read-only inspection stays allowed
+ * while planning, but anything that could change the repo (git write commands,
+ * file writes, publish, build that rewrites tracked files) is blocked until the
+ * agent exits plan mode. Command-letter-only checks on the first word keep false
+ * positives low (a command like `node -v` is not a mutation).
+ */
+function isMutatingPwshCommand(command: string): boolean {
+  const trim = command.trim()
+  const first = trim.split(/\s+/)[0] ?? ''
+  if (/^git$/i.test(first) || /^git\.exe$/i.test(first) || /^git\s/.test(trim)) {
+    const sub = '(^|\\s)(add|commit|push|tag|merge|rebase|reset|revert|cherry-pick|am|rm|mv|'
+      + 'stash\\s+(pop|apply)|branch\\s+-[DM]|switch\\s+-(d|delete)|checkout\\s+-(b|B)|fetch)$'
+    const writeSubcommand = new RegExp(sub, 'm').test(trim)
+    const writeVerb = /\bgit\s+(add|commit|push|tag|merge|rebase|reset|revert)\b/
+    return writeSubcommand || writeVerb.test(trim)
+  }
+  // Explicit file-write / structure-changing cmdlets.
+  if (/\b(New-Item|Set-Content|Add-Content|Out-File|Copy-Item|Move-Item|Remove-Item|Rename-Item|New-File)\b/i.test(trim)) return true
+  // Package / release / build commands that rewrite tracked or published state.
+  if (/\b(npm|pnpm|yarn|dotnet|cargo)\s+(publish|add|install|remove|set|run|build|prepublish)\b/i.test(trim)) return true
+  return false
+}
+
 function pwshDescription(backgroundEnabled: boolean, escalationModes: readonly SandboxMode[]): string {
   const background = backgroundEnabled
     ? 'Set `run_in_background: true` for long-running commands: the call returns a job id immediately; read its output with `job_output` and stop it with `job_kill`.'
@@ -347,6 +381,15 @@ export function apply(ctx: Context, config: Config = {}): void {
     /* jscpd:ignore-start -- the execute path mirrors dsh-tool-bash's by design (see the pwsh-tool-and-executor Agent Note). */
     async execute(args: PwshToolArgs, exec) {
       validatePwshArgs(args)
+      // Plan mode is a hard gate on the shell surface: read-only commands stay
+      // available for planning-time inspection, but likely mutating commands
+      // (git write ops, file writes, publish/build) are blocked until the agent
+      // exits plan mode via an approved plan.
+      if (exec.agent !== undefined && planModeActive(exec.agent.session.events) && isMutatingPwshCommand(args.command)) {
+        throw new Error('plan mode is active — this command looks like a repository mutation and is blocked. '
+          + 'Present your complete plan via exit_plan_mode and get the user\'s approval to leave plan mode, '
+          + 'then (from act mode) run it.')
+      }
       // Description is display metadata; workdir defaults to the caller's session.
       const standingPolicy = resolveSandboxPolicy(exec)
       const approvedMode = args.sandbox_permissions !== undefined && args.justification !== undefined

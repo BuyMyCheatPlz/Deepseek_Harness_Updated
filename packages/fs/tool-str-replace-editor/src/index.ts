@@ -29,6 +29,30 @@ Notes for using the \`str_replace\` command:
 * The \`new_str\` parameter should contain the edited lines that should replace the \`old_str\`
 `.trim()
 
+/** Fold plan mode from session events: the last `plan/mode` wins, default inactive. */
+function planModeActive(events: readonly { type: string; data: unknown }[]): boolean {
+  let active = false
+  for (const event of events) {
+    if (event.type === 'plan/mode') active = (event.data as { active?: boolean }).active === true
+  }
+  return active
+}
+
+/**
+ * Block a mutating command while the calling agent's session is in plan mode.
+ * Reads plan state directly from the session log so `@deepseek-ai/dsh-plan-mode`
+ * needs no value import here (and no project-reference cascade into this build
+ * graph). Plan mode must be exited via an approved `exit_plan_mode` before any
+ * change lands.
+ */
+function assertNotPlanMode(agent: { session: { events: readonly { type: string; data: unknown }[] } } | undefined): void {
+  if (agent !== undefined && planModeActive(agent.session.events)) {
+    throw new Error('plan mode is active — this mutating operation is blocked. '
+      + 'Present your complete plan via exit_plan_mode and get the user\'s approval to leave plan mode, '
+      + 'then (from act mode) perform the change.')
+  }
+}
+
 function maybeTruncate(content: string, maxOutputChars: number): string {
   return content.length <= maxOutputChars
     ? content
@@ -461,6 +485,10 @@ function registerStrReplaceEditor(ctx: Context, config: ResolvedConfig): void {
       render: (_args, value) => [{ type: 'text', text: value }],
     },
     async execute(args, exec) {
+      // Plan mode is a hard gate: mutating commands (create/str_replace/insert)
+      // are blocked until the agent exits plan mode via an approved plan.
+      // `view` stays available for planning-time inspection.
+      if (args.command !== 'view') assertNotPlanMode(exec.agent)
       switch (args.command) {
         case 'view':
           return viewPath(ctx, args.path, args.view_range, config.maxOutputChars, exec)
