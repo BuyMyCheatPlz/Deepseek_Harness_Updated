@@ -27,6 +27,13 @@ Copy-Item (Join-Path $repo 'packages\bundle\web-app\cordis.patch.yml')  (Join-Pa
 # DSH_HOME (CI lifecycle test) can't resolve model-router and `dsh web` fails to boot.
 Copy-Item (Join-Path $repo 'packages\bundle\web-app\package.json')      (Join-Path $buildDsh 'dsh-web-app\package.json') -Force
 
+# Plan-mode enforcement lives in the mutating tool packages (write / edit /
+# pwsh). Overlay their fork builds too, or the installed exe keeps the upstream
+# tool code that only suggests (never enforces) plan mode.
+Copy-Item (Join-Path $repo 'packages\fs\tool-fs\lib\index.js')                    (Join-Path $buildDsh 'dsh-tool-fs\lib\index.js') -Force
+Copy-Item (Join-Path $repo 'packages\fs\tool-str-replace-editor\lib\index.js')    (Join-Path $buildDsh 'dsh-tool-str-replace-editor\lib\index.js') -Force
+Copy-Item (Join-Path $repo 'packages\shell\tool-pwsh\lib\index.js')               (Join-Path $buildDsh 'dsh-tool-pwsh\lib\index.js') -Force
+
 # 1b. Overlay the fork's browser bundles too. The wire client (dsh-client-connection)
 #     inlines the fetch carrier + the sessions value schemas, so it MUST be the
 #     fork build to expose session.setAutoRouting / the autoRouting response field
