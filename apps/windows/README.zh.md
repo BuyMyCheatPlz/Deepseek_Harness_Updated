@@ -147,7 +147,7 @@ agent-model-router:
 
 | 设置 | 注册表值 / 参数 | 默认值 | 含义 |
 |---|---|---|---|
-| `port` | `port` / `-port` | `3080` | 以 `--port` 传给 `dsh web` 的端口 |
+| `port` | `port` / `-port` | `3080` | 以 `--port` 传给 `dsh web` 的端口；已被占用时应用自动改用下一个空闲端口 |
 | `dshPath` | `dshPath` / `-dshPath` | 自动 | dsh `lib/bin.js` 的显式路径 |
 | `nodePath` | `nodePath` / `-nodePath` | 自动 | `node.exe` 的显式路径 |
 | `openBrowserOnLaunch` | `openBrowserOnLaunch` / `-openBrowserOnLaunch` | `0` | 服务就绪时是否额外打开系统浏览器（内嵌视图始终显示） |

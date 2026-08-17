@@ -253,6 +253,18 @@ namespace DeepSeekHarness
                 return false;
             }
         }
+
+        // Find the first free loopback port at or above `start`. Used so a
+        // startup whose configured port is already occupied silently moves to
+        // the next open port instead of refusing to launch.
+        public static int FindFreePort(int start)
+        {
+            for (int port = start; port < start + 100; port++)
+            {
+                if (!PortOpen(port)) return port;
+            }
+            return start;
+        }
     }
 
     internal class Server
@@ -261,6 +273,7 @@ namespace DeepSeekHarness
 
         public Process Child;
         public int Pid;
+        public int Port;
         public string DshPath = "";
         public string NodePath = "";
         public bool Quitting;
@@ -279,12 +292,9 @@ namespace DeepSeekHarness
                 return "Cannot find dsh and/or node. Install them, set the dshPath/nodePath registry values "
                     + @"(HKCU\Software\DeepSeek Harness), or use --bundle-dsh at build time.";
             }
-            if (Net.PortOpen(Settings.Port))
-            {
-                return "Port " + Settings.Port
-                    + " is already in use by another process. Quit that process, or choose another port "
-                    + "(registry value port or -port <n>).";
-            }
+            // If the configured port is taken, move to the next free loopback
+            // port instead of refusing to start.
+            Port = Net.FindFreePort(Settings.Port);
             try
             {
                 Directory.CreateDirectory(Settings.StatePath());
@@ -295,8 +305,7 @@ namespace DeepSeekHarness
 
             Process process = new Process();
             process.StartInfo.FileName = NodePath;
-            process.StartInfo.Arguments = "\"" + DshPath + "\" web";
-            if (Settings.Port != 3080) process.StartInfo.Arguments += " --port " + Settings.Port;
+            process.StartInfo.Arguments = "\"" + DshPath + "\" web --port " + Port;
             process.StartInfo.UseShellExecute = false;
             process.StartInfo.CreateNoWindow = true;
             process.StartInfo.WorkingDirectory =
@@ -363,7 +372,7 @@ namespace DeepSeekHarness
             try
             {
                 File.WriteAllText(Settings.ServerLockPath(),
-                    Pid + " " + Settings.Port + Environment.NewLine);
+                    Pid + " " + Port + Environment.NewLine);
             }
             catch (Exception)
             {
@@ -413,12 +422,12 @@ namespace DeepSeekHarness
             Quitting = true;
             KillTree(Pid);
             int waited = 0;
-            while (waited < 6000 && Net.PortOpen(Settings.Port))
+            while (waited < 6000 && Net.PortOpen(Port))
             {
                 Thread.Sleep(100);
                 waited += 100;
             }
-            if (Net.PortOpen(Settings.Port)) KillTree(Pid);
+            if (Net.PortOpen(Port)) KillTree(Pid);
             RemoveServerLock();
             Pid = 0;
             Quitting = false;
@@ -587,7 +596,7 @@ namespace DeepSeekHarness
             openButton.Text = "Open in Browser";
             openButton.Width = 120;
             openButton.Enabled = false;
-            openButton.Click += delegate { Browser.Open(Settings.Port); };
+            openButton.Click += delegate { Browser.Open(server.Port); };
 
             restartButton = new Button();
             restartButton.Text = "Restart";
@@ -657,15 +666,15 @@ namespace DeepSeekHarness
             }
             if (!ready)
             {
-                if (Net.PortOpen(Settings.Port))
+                if (Net.PortOpen(server.Port))
                 {
                     ready = true;
                     statusLabel.Text = "Running";
-                    urlLabel.Text = "http://127.0.0.1:" + Settings.Port;
+                    urlLabel.Text = "http://127.0.0.1:" + server.Port;
                     openButton.Enabled = true;
                     restartButton.Enabled = true;
                     LoadWebView();
-                    if (Settings.OpenBrowserOnLaunch) Browser.Open(Settings.Port);
+                    if (Settings.OpenBrowserOnLaunch) Browser.Open(server.Port);
                 }
                 else if (DateTime.Now > readyDeadline)
                 {
@@ -679,7 +688,7 @@ namespace DeepSeekHarness
         {
             try
             {
-                web.Source = new Uri("http://127.0.0.1:" + Settings.Port);
+                web.Source = new Uri("http://127.0.0.1:" + server.Port);
             }
             catch (Exception)
             {
@@ -690,7 +699,6 @@ namespace DeepSeekHarness
         {
             ready = false;
             statusLabel.Text = "Starting server…";
-            urlLabel.Text = "http://127.0.0.1:" + Settings.Port;
             openButton.Enabled = false;
             restartButton.Enabled = false;
             readyDeadline = DateTime.Now.AddSeconds(90);
@@ -700,6 +708,7 @@ namespace DeepSeekHarness
                 Fail(error);
                 return;
             }
+            urlLabel.Text = "http://127.0.0.1:" + server.Port;
             if (lifeTimer == null)
             {
                 lifeTimer = new System.Windows.Forms.Timer();

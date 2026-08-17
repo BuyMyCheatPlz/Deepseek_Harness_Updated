@@ -147,7 +147,7 @@ Registry values under `HKCU\Software\DeepSeek Harness` (mirror of the macOS `def
 
 | Setting | Registry value / argument | Default | Meaning |
 |---|---|---|---|
-| `port` | `port` / `-port` | `3080` | Port passed to `dsh web` as `--port` |
+| `port` | `port` / `-port` | `3080` | Port passed to `dsh web` as `--port`; if it is already in use the app automatically starts on the next free port |
 | `dshPath` | `dshPath` / `-dshPath` | auto | Explicit path to the dsh `lib/bin.js` |
 | `nodePath` | `nodePath` / `-nodePath` | auto | Explicit path to `node.exe` |
 | `openBrowserOnLaunch` | `openBrowserOnLaunch` / `-openBrowserOnLaunch` | `0` | Additionally open the system browser when the server is ready (the embedded view always shows) |
