@@ -47,18 +47,26 @@ apps/windows/build.ps1 -BundleDsh -DshVersion 0.1.0-rc.6
 
 ### Rebuild and update the fork bundle
 
-`build.ps1 -BundleDsh` installs the **upstream** `@deepseek-ai/dsh` from npm, which does **not** contain this fork's changes — the Plan/Act dual-model router, the model selector's **Auto / Manual** toggle, and the `session.setAutoRouting` RPC that toggle drives all live only in this fork. Run `apps/windows/rebundle.ps1` after **every** rebuild that re-runs `-BundleDsh`, and after the in-app self-update atomically swaps the bundled `dsh\`:
+`build.ps1 -BundleDsh` installs the **upstream** `@deepseek-ai/dsh` from npm, which does **not** contain this fork's changes — the Plan/Act dual-model router, the model selector's **Auto / Manual** toggle, and the `session.setAutoRouting` RPC that toggle drives all live only in this fork.
+
+**Users never need to do anything across upstream updates.** The install ships a persistent fork-overlay stash under `overlay\dsh`, and the launcher re-applies it into the bundled `dsh\` on every startup and after every in-app self-update — so upgrading to a newer upstream version (e.g. rc.7) keeps the Plan/Act routing, the model toggle, and the plan-mode tool guards. This is the `ForkOverlay.Ensure()` path in `Program.cs`.
+
+**Developers** rebuild the fork packages and re-stage the overlay (both into the live `dsh\` and the `overlay\dsh` stash) with:
 
 ```powershell
 npx --yes pnpm@11.7.0 run build:lib:host    # build the fork's packages
 npx --yes pnpm@11.7.0 run build:lib:client   # build the fork's browser bundles
-powershell -ExecutionPolicy Bypass -File apps/windows/build.ps1 -BundleDsh -DshVersion 0.1.0-rc.6
+powershell -ExecutionPolicy Bypass -File apps/windows/build.ps1 -BundleDsh -DshVersion 0.1.0-rc.7
 powershell -ExecutionPolicy Bypass -File apps/windows/rebundle.ps1
 ```
 
-`rebundle.ps1` overlays the fork-built host packages (`dsh-agent`, `dsh-host-apiproxy`, `dsh-headless`, `dsh-web-app`) **and** the browser bundles — `dsh-client-connection` (carries the `setAutoRouting` wire method and the `autoRouting` response field), `dsh-client-ui-model-selection`, and `dsh-client-ui-plan` — installs `dsh-model-router` beside them, and links it into the profile's module fallback so the loader resolves it.
+`rebundle.ps1` overlays the fork-built host packages (`dsh-agent`, `dsh-host-apiproxy`, `dsh-headless`, `dsh-web-app`) **and** the browser bundles — `dsh-client-connection` (carries the `setAutoRouting` wire method and the `autoRouting` response field), `dsh-client-ui-model-selection`, and `dsh-client-ui-plan` — installs `dsh-model-router` beside them, links it into the profile's module fallback, and writes the same files into `overlay\dsh\` for self-healing.
 
-Because the browser bundles are hashed and injected into the page at startup, **restart the app** (quit `DeepSeek Harness.exe` and reopen it) after rebundling so the new bundles actually load.
+Because the browser bundles are hashed and injected into the page at startup, **restart the app** (quit `DeepSeek Harness.exe` and reopen it) after tinkering so the new bundles actually load.
+
+### App icon
+
+The launcher and installer use `7x4nf-prdx8-001.ico` from the repository root. `build.ps1` copies it beside the exe as `app.ico`, embeds it as the exe's Win32 icon (`/win32icon:`), and `installer.iss` uses it as the installer icon and ships it into `{app}`; `Program.cs` loads it for the window icon. After install the exe, Start-menu/Desktop shortcuts, the installer, and the window all show that icon.
 
 ## How it works
 

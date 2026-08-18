@@ -47,18 +47,26 @@ apps/windows/build.ps1 -BundleDsh -DshVersion 0.1.0-rc.6
 
 ### 重新打包与更新 fork 产物
 
-`build.ps1 -BundleDsh` 装的是 **上游** `@deepseek-ai/dsh`（来自 npm），其中**不包含**本 fork 的改动——Plan/Act 双模型分流、模型选择器的 **Auto / Manual** 开关、以及该开关驱动的 `session.setAutoRouting` RPC，都只存在于本 fork。每次重新执行会重跑 `-BundleDsh` 的构建、或应用内自更新原子替换了内嵌的 `dsh\` 之后，都要用 `apps/windows/rebundle.ps1` 重新套用：
+`build.ps1 -BundleDsh` 装的是 **上游** `@deepseek-ai/dsh`（来自 npm），其中**不包含**本 fork 的改动——Plan/Act 双模型分流、模型选择器的 **Auto / Manual** 开关、以及该开关驱动的 `session.setAutoRouting` RPC，都只存在于本 fork。
+
+**用户无需在每次上游更新后手动操作。** 安装目录里带有一份持久的 fork 叠加层 `overlay\dsh`，启动器在**每次启动**和**每次应用内自更新后**都会把它重新铺到内嵌的 `dsh\` 里——所以升级到更新的上游版本（如 rc.7）后，Plan/Act 分流、模型开关、以及 plan 模式工具拦截都会自动保留。这是 `Program.cs` 里的 `ForkOverlay.Ensure()`。
+
+**开发者**重新构建 fork 包并重铺叠加层（同时写入 `dsh\` 与 `overlay\dsh\`）：
 
 ```powershell
 npx --yes pnpm@11.7.0 run build:lib:host    # build the fork's packages
 npx --yes pnpm@11.7.0 run build:lib:client   # build the fork's browser bundles
-powershell -ExecutionPolicy Bypass -File apps/windows/build.ps1 -BundleDsh -DshVersion 0.1.0-rc.6
+powershell -ExecutionPolicy Bypass -File apps/windows/build.ps1 -BundleDsh -DshVersion 0.1.0-rc.7
 powershell -ExecutionPolicy Bypass -File apps/windows/rebundle.ps1
 ```
 
-`rebundle.ps1` 会把 fork 构建的 host 包（`dsh-agent`、`dsh-host-apiproxy`、`dsh-headless`、`dsh-web-app`）**以及**浏览器 bundle——`dsh-client-connection`（承载 `setAutoRouting` 方法与 `autoRouting` 响应字段）、`dsh-client-ui-model-selection`、`dsh-client-ui-plan`——的本地构建产物覆盖回去，把 `dsh-model-router` 装到旁边，并链接进 profile 的模块回退目录，让 loader 能解析到它。
+`rebundle.ps1` 会把 fork 构建的 host 包（`dsh-agent`、`dsh-host-apiproxy`、`dsh-headless`、`dsh-web-app`）**以及**浏览器 bundle——`dsh-client-connection`（承载 `setAutoRouting` 方法与 `autoRouting` 响应字段）、`dsh-client-ui-model-selection`、`dsh-client-ui-plan`——的本地构建产物覆盖回去，把 `dsh-model-router` 装到旁边、链接进 profile 的模块回退目录，并把同样文件写入 `overlay\dsh\` 用于自修复。
 
-由于浏览器 bundle 在启动时会被哈希并注入页面，**重新打包后需要重启应用**（退出 `DeepSeek Harness.exe` 再重新打开），新 bundle 才会真正加载。
+由于浏览器 bundle 在启动时会被哈希并注入页面，**自己调试重新打包后需要重启应用**（退出 `DeepSeek Harness.exe` 再重新打开），新 bundle 才会真正加载。
+
+### 应用图标
+
+启动器与安装包使用仓库根目录的 `7x4nf-prdx8-001.ico`。`build.ps1` 把它作为 `app.ico` 复制到 exe 旁、用 `/win32icon:` 内嵌为 exe 图标；`installer.iss` 把它用作安装程序图标并装进 `{app}`；`Program.cs` 运行时加载它为窗口图标。安装后 exe、开始菜单/桌面快捷方式、安装程序、窗口都会显示该图标。
 
 ## 工作方式
 
