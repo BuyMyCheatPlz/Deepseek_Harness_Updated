@@ -550,6 +550,14 @@ namespace DeepSeekHarness
             ClientSize = new Size(1100, 720);
             MinimumSize = new Size(640, 420);
             StartPosition = FormStartPosition.CenterScreen;
+            // Use the bundled app icon (fall back to the compiler-injected
+            // Win32 icon when the copy beside the exe is missing).
+            try
+            {
+                string iconPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "app.ico");
+                if (File.Exists(iconPath)) Icon = new Icon(iconPath);
+            }
+            catch (Exception) { }
 
             // The embedded UI: the same page a browser would load at the
             // served URL. WebView2 runs on the Edge runtime installed with
@@ -627,6 +635,10 @@ namespace DeepSeekHarness
         protected override void OnLoad(EventArgs e)
         {
             base.OnLoad(e);
+            // Re-apply the fork overlay (Plan/Act router, model toggle, tool
+            // guards) over whatever dsh version is currently bundled, so the
+            // additions survive an upstream update.
+            ForkOverlay.Ensure();
             Application.ApplicationExit += delegate { server.Terminate(); };
             server.WriteAppLock();
             server.Resolve();
@@ -1098,6 +1110,80 @@ namespace DeepSeekHarness
         }
     }
 
+    // The fork overlay: the extra files this build adds on top of upstream
+    // @deepseek-ai/dsh — the Plan/Act model router, the Auto/Manual model
+    // selector, and the plan-mode tool guards. They ship under overlay\dsh
+    // beside the exe and are (re)applied into the bundled dsh\ folder on every
+    // startup and after every self-update, so an upstream npm update (which
+    // atomically replaces dsh\) can never silently wipe the fork's additions.
+    internal static class ForkOverlay
+    {
+        // The @deepseek-ai package sub-paths this fork overlays, each a
+        // directory under overlay\dsh\node_modules\@deepseek-ai\<pkg> that
+        // replaces the bundled copy. Files, not the whole tree, so upstream's
+        // non-overlaid code stays untouched.
+        private static readonly string[] OverlayPackages =
+        {
+            "dsh-agent",
+            "dsh-host-apiproxy",
+            "dsh-model-router",
+            "dsh-tool-fs",
+            "dsh-tool-str-replace-editor",
+            "dsh-tool-pwsh",
+            "dsh-client-connection",
+            "dsh-client-ui-model-selection",
+            "dsh-client-ui-plan",
+            "dsh-web-app",
+        };
+
+        /// <summary>
+        /// Copy the fork's overlay files back into the bundled dsh\, restoring
+        /// Plan/Act routing, the model toggle, and the plan-mode tool guards
+        /// over whatever upstream version is currently installed. Idempotent:
+        /// copying the same content over itself is a no-op, harmless on every
+        /// start.
+        /// </summary>
+        public static void Ensure()
+        {
+            try
+            {
+                string baseDir = AppDomain.CurrentDomain.BaseDirectory;
+                string overlay = Path.Combine(baseDir, "overlay", "dsh", "node_modules", "@deepseek-ai");
+                if (!Directory.Exists(overlay)) return;
+                string target = Path.Combine(baseDir, "dsh", "node_modules", "@deepseek-ai");
+                foreach (string pkg in OverlayPackages)
+                {
+                    string src = Path.Combine(overlay, pkg);
+                    if (!Directory.Exists(src)) continue;
+                    string dst = Path.Combine(target, pkg);
+                    Directory.CreateDirectory(dst);
+                    CopyTree(src, dst);
+                }
+            }
+            catch (Exception)
+            {
+                // Never block startup on an overlay failure; the app still runs
+                // (just without the fork additions this launch).
+            }
+        }
+
+        private static void CopyTree(string src, string dst)
+        {
+            foreach (string file in Directory.GetFiles(src))
+            {
+                string name = Path.GetFileName(file);
+                try { File.Copy(file, Path.Combine(dst, name), true); } catch (Exception) { }
+            }
+            foreach (string dir in Directory.GetDirectories(src))
+            {
+                string name = Path.GetFileName(dir);
+                string childDst = Path.Combine(dst, name);
+                Directory.CreateDirectory(childDst);
+                CopyTree(dir, childDst);
+            }
+        }
+    }
+
     // Reinstalls @deepseek-ai/dsh at a target version using the resolved node's
     // npm. A bundled dsh\ folder is swapped atomically (staging -> rename), so
     // the running exe never replaces itself and future webui updates only touch
@@ -1142,6 +1228,10 @@ namespace DeepSeekHarness
                     return "Could not replace the dsh folder: " + ex.Message;
                 }
                 try { Directory.Delete(backup, true); } catch (Exception) { }
+                // The swap installed UPSTREAM dsh, which lacks this fork's
+                // additions — re-apply them now so the next launch keeps
+                // Plan/Act routing, the model toggle, and the tool guards.
+                ForkOverlay.Ensure();
                 return null;
             }
 

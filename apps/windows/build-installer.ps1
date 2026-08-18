@@ -36,6 +36,14 @@ if (-not (Test-Path $binJs)) {
 $exe = Join-Path $outDir 'DeepSeek Harness.exe'
 if (-not (Test-Path $exe)) { throw "build\DeepSeek Harness.exe is missing; run apps/windows/build.ps1 first." }
 
+# (Re)generate the fork overlay stash (overlay\dsh) from the built packages, so
+# the installer ships the self-healing overlay the launcher re-applies after
+# every upstream update. Requires the fork packages built (build:lib:host/client).
+& (Join-Path $scriptDir 'rebundle.ps1')
+if (-not (Test-Path (Join-Path $outDir 'app.ico'))) {
+  throw "build\app.ico is missing; build.ps1 copies it from the repo-root icon."
+}
+
 $displayVersion = ""
 try {
   # Prefer the installed dsh version stamped in the bundled web runtime.

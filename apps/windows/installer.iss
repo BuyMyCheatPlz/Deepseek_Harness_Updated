@@ -42,6 +42,7 @@ PrivilegesRequired=admin
 ArchitecturesInstallIn64BitMode=x64
 OutputDir={#BuildDir}
 OutputBaseFilename=DeepSeek-Harness-Setup-{#MyAppVersion}
+SetupIconFile={#BuildDir}\app.ico
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
@@ -62,12 +63,21 @@ Source: "{#BuildDir}\{#MyAppExe}"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#BuildDir}\Microsoft.Web.WebView2.Core.dll"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#BuildDir}\Microsoft.Web.WebView2.WinForms.dll"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#BuildDir}\WebView2Loader.dll"; DestDir: "{app}"; Flags: ignoreversion
+; App icon (root 7x4nf-prdx8-001.ico, staged by build.ps1 as app.ico), used by
+; the launcher Form.Icon at runtime.
+Source: "{#BuildDir}\app.ico"; DestDir: "{app}"; Flags: ignoreversion
 ; Bundled web runtime (the fork's dsh, already rebundled).
 Source: "{#BuildDir}\dsh\*"; DestDir: "{app}\dsh"; Flags: recursesubdirs ignoreversion
+; The persistent fork-overlay stash: the launcher re-applies overlay\dsh into
+; dsh\ on every start and after each self-update, so upstream updates keep the
+; Plan/Act router, model toggle, and tool guards.
+Source: "{#BuildDir}\overlay\dsh\*"; DestDir: "{app}\overlay\dsh"; Flags: recursesubdirs ignoreversion
 ; Bundled portable Node.js runtime (node.exe + npm). Supplied by build-installer.ps1.
 Source: "{#BuildDir}\runtime\node\*"; DestDir: "{app}\runtime\node"; Flags: recursesubdirs ignoreversion
 
 [Icons]
+; Shortcuts pin the exe's icon (which carries the embedded Win32 icon) and
+; implicitly the app.ico next to it.
 Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExe}"
 Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExe}"; Tasks: desktopicon
 

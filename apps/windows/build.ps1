@@ -72,6 +72,22 @@ namespace DeepSeekHarness
 "@
 Set-Content -Path $buildInfo -Value $buildInfoContent -Encoding UTF8
 
+# --- App icon ------------------------------------------------------------------
+# The shipped icon lives at the repository root (7x4nf-prdx8-001.ico); copy it
+# into the build output as app.ico so the launcher's Form.Icon can load it at
+# runtime and the installer can package it. csc also embeds it as the exe's
+# Win32 icon (taskbar / Explorer).
+$repo = Resolve-Path (Join-Path $scriptDir '..\..')
+$rootIcon = Join-Path $repo '7x4nf-prdx8-001.ico'
+$appIcon = Join-Path $outDir 'app.ico'
+$win32IconSwitch = ''
+if (Test-Path $rootIcon) {
+  Copy-Item $rootIcon $appIcon -Force
+  $win32IconSwitch = '/win32icon:' + $appIcon
+} else {
+  Write-Host "WARN: root icon (7x4nf-prdx8-001.ico) not found; compiling without a Win32 icon"
+}
+
 # --- Compile ------------------------------------------------------------------
 Write-Host "==> Compiling $exe"
 $csc = "$env:WINDIR\Microsoft.NET\Framework64\v4.0.30319\csc.exe"
@@ -79,6 +95,7 @@ if (-not (Test-Path $csc)) { $csc = "$env:WINDIR\Microsoft.NET\Framework\v4.0.30
 if (-not (Test-Path $csc)) { throw "csc.exe not found; .NET Framework 4.x is required" }
 
 & $csc /nologo /target:winexe "/out:$exe" `
+  $win32IconSwitch `
   /r:System.dll /r:System.Drawing.dll /r:System.Windows.Forms.dll /r:System.Management.dll `
   "/r:$(Join-Path $outDir 'Microsoft.Web.WebView2.Core.dll')" `
   "/r:$(Join-Path $outDir 'Microsoft.Web.WebView2.WinForms.dll')" `
