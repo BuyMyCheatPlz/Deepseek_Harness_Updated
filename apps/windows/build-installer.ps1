@@ -21,6 +21,7 @@
 #
 # Prereqs: Inno Setup 6 (ISCC.exe) on PATH, or set ISCC_PATH to the compiler.
 param(
+  [string]$DshVersion = '',
   [string]$NodeVersion = '22.19.0'
 )
 
@@ -44,13 +45,15 @@ if (-not (Test-Path (Join-Path $outDir 'app.ico'))) {
   throw "build\app.ico is missing; build.ps1 copies it from the repo-root icon."
 }
 
-$displayVersion = ""
-try {
-  # Prefer the installed dsh version stamped in the bundled web runtime.
-  $pkg = Get-Content (Join-Path $outDir 'dsh\node_modules\@deepseek-ai\dsh\package.json') -Raw | ConvertFrom-Json
-  $displayVersion = $pkg.version
-} catch { }
-if (-not $displayVersion) { $displayVersion = '0.1.0-rc.6' }
+$displayVersion = $DshVersion
+if (-not $displayVersion) {
+  try {
+    # Prefer the installed dsh version stamped in the bundled web runtime.
+    $pkg = Get-Content (Join-Path $outDir 'dsh\node_modules\@deepseek-ai\dsh\package.json') -Raw | ConvertFrom-Json
+    $displayVersion = $pkg.version
+  } catch { }
+}
+if (-not $displayVersion) { $displayVersion = '0.1.2' }
 $displayVersion = $displayVersion -replace '^dsh-v', ''
 
 # --- Portable Node.js runtime -------------------------------------------------
@@ -74,6 +77,16 @@ if (-not (Test-Path (Join-Path $nodeDir 'node.exe'))) {
 
 # --- Compile with Inno Setup --------------------------------------------------
 $iscc = $env:ISCC_PATH
+if (-not $iscc) {
+  $candidatePaths = @(
+    (Join-Path $env:LOCALAPPDATA 'Programs\Inno Setup 6\ISCC.exe'),
+    "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe",
+    "$env:ProgramFiles\Inno Setup 6\ISCC.exe"
+  )
+  foreach ($candidate in $candidatePaths) {
+    if (Test-Path $candidate) { $iscc = $candidate; break }
+  }
+}
 if (-not $iscc) {
   $iscc = Get-Command 'ISCC.exe' -ErrorAction SilentlyContinue
   $iscc = if ($iscc) { $iscc.Source } else { $null }

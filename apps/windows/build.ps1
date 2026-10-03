@@ -106,8 +106,12 @@ if ($LASTEXITCODE -ne 0) { throw "csc failed with exit code $LASTEXITCODE" }
 if ($BundleDsh) {
   $dshDir = Join-Path $outDir 'dsh'
   Write-Host "==> Bundling @deepseek-ai/dsh@$DshVersion into $dshDir"
-  npm install --prefix $dshDir "@deepseek-ai/dsh@$DshVersion"
-  if ($LASTEXITCODE -ne 0) { throw "npm install failed" }
+  & npm install --prefix $dshDir "@deepseek-ai/dsh@$DshVersion"
+  if ($LASTEXITCODE -ne 0) {
+    Write-Host "WARN: npm install @deepseek-ai/dsh@$DshVersion failed; falling back to @deepseek-ai/dsh@0.1.0-rc.7"
+    & npm install --prefix $dshDir "@deepseek-ai/dsh@0.1.0-rc.7"
+    if ($LASTEXITCODE -ne 0) { throw "npm install failed" }
+  }
 }
 
 Write-Host "==> Done: $exe"
