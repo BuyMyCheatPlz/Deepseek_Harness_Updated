@@ -148,12 +148,7 @@ jobs:
         shell: bash
         env:
           DSH_BUNDLE_VERSION: ${{ steps.version.outputs.version }}
-        run: |
-          ARGS=()
-          if [[ "${{ steps.decide.outputs.bundle }}" == "true" ]]; then
-            ARGS+=(-BundleDsh)
-          fi
-          powershell -ExecutionPolicy Bypass -File apps/windows/build.ps1 "${ARGS[@]}"
+        run: powershell -ExecutionPolicy Bypass -File apps/windows/build.ps1 -BundleDsh
 
       # The fork's features (Plan/Act dual-model routing, the Auto/Manual model
       # toggle, and the session.setAutoRouting RPC behind it) live only in this

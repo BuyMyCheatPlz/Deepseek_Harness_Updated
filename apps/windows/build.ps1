@@ -105,11 +105,16 @@ if ($LASTEXITCODE -ne 0) { throw "csc failed with exit code $LASTEXITCODE" }
 
 if ($BundleDsh) {
   $dshDir = Join-Path $outDir 'dsh'
+  New-Item -ItemType Directory -Force $dshDir | Out-Null
+  $dshPkg = Join-Path $dshDir 'package.json'
+  if (-not (Test-Path $dshPkg)) {
+    Set-Content -Path $dshPkg -Value '{ "name": "dsh-bundle", "private": true }' -Encoding UTF8
+  }
   Write-Host "==> Bundling @deepseek-ai/dsh@$DshVersion into $dshDir"
-  & npm install --prefix $dshDir "@deepseek-ai/dsh@$DshVersion"
+  & npm install --prefix $dshDir "@deepseek-ai/dsh@$DshVersion" --no-audit --no-fund
   if ($LASTEXITCODE -ne 0) {
     Write-Host "WARN: npm install @deepseek-ai/dsh@$DshVersion failed; falling back to @deepseek-ai/dsh@0.1.0-rc.7"
-    & npm install --prefix $dshDir "@deepseek-ai/dsh@0.1.0-rc.7"
+    & npm install --prefix $dshDir "@deepseek-ai/dsh@0.1.0-rc.7" --no-audit --no-fund
     if ($LASTEXITCODE -ne 0) { throw "npm install failed" }
   }
 }
