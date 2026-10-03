@@ -16,6 +16,31 @@ $stateDir = Join-Path $repoRoot '.cache\shell-state'
 $dshHome = Join-Path $repoRoot '.cache\shell-dsh-home'
 $appProcesses = @()
 
+Add-Type @"
+  using System;
+  using System.Runtime.InteropServices;
+  public class WindowHelper {
+    public delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
+    [DllImport("user32.dll")]
+    public static extern bool EnumThreadWindows(int dwThreadId, EnumWindowsProc lpfn, IntPtr lParam);
+    [DllImport("user32.dll")]
+    public static extern bool PostMessage(IntPtr hWnd, uint Msg, IntPtr wParam, IntPtr lParam);
+    public const uint WM_CLOSE = 0x0010;
+
+    public static void CloseProcessWindows(int pid) {
+      try {
+        var proc = System.Diagnostics.Process.GetProcessById(pid);
+        foreach (System.Diagnostics.ProcessThread t in proc.Threads) {
+          EnumThreadWindows(t.Id, (hWnd, lParam) => {
+            PostMessage(hWnd, WM_CLOSE, IntPtr.Zero, IntPtr.Zero);
+            return true;
+          }, IntPtr.Zero);
+        }
+      } catch {}
+    }
+  }
+"@
+
 function Test-PortOpen([int]$port) {
   try {
     $c = New-Object System.Net.Sockets.TcpClient
@@ -65,14 +90,17 @@ function Stop-LockServers {
 }
 
 function Launch-App {
-  $argList = @('-port', "$testPort", '-stateDir', "`"$stateDir`"", '-openBrowserOnLaunch', '0', '-singleInstance', '0')
+  $argList = @('-port', "$testPort", '-stateDir', "`"$stateDir`"", '-openBrowserOnLaunch', '0', '-singleInstance', '0', '-checkUpdates', '0')
   $app = Start-Process -FilePath $exe -ArgumentList $argList -PassThru
   $script:appProcesses += $app
   Write-Host "app pid=$($app.Id)"
   return $app
 }
 
-function Stop-App([int]$appPid) { & taskkill /PID $appPid 2>$null | Out-Null }
+function Stop-App([int]$appPid) {
+  [WindowHelper]::CloseProcessWindows($appPid)
+  & taskkill /PID $appPid 2>$null | Out-Null
+}
 function Stop-AppForce([int]$appPid) { & taskkill /F /PID $appPid 2>$null | Out-Null }
 
 try {
@@ -83,7 +111,14 @@ try {
   $env:DSH_HOME = $dshHome
 
   $app = Launch-App
-  if (-not (Wait-Lock (Join-Path $stateDir 'server.pid') '')) { throw 'phase 1: no server.pid lock' }
+  if (-not (Wait-Lock (Join-Path $stateDir 'server.pid') '')) {
+    $serverLog = Join-Path $stateDir 'server.log'
+    if (Test-Path $serverLog) {
+      Write-Host "--- server.log ---"
+      Get-Content $serverLog -Tail 100
+    }
+    throw 'phase 1: no server.pid lock'
+  }
   $serverPid = Read-ServerPid
   if ($serverPid -le 0) { throw 'phase 1: server.pid has no pid' }
   if (-not (Wait-Port $testPort $true 60)) { throw 'phase 1: port did not open' }
@@ -107,7 +142,14 @@ try {
   New-Item -ItemType Directory -Force $stateDir | Out-Null
 
   $app = Launch-App
-  if (-not (Wait-Lock (Join-Path $stateDir 'server.pid') '')) { throw 'phase 2: no server.pid lock' }
+  if (-not (Wait-Lock (Join-Path $stateDir 'server.pid') '')) {
+    $serverLog = Join-Path $stateDir 'server.log'
+    if (Test-Path $serverLog) {
+      Write-Host "--- server.log ---"
+      Get-Content $serverLog -Tail 100
+    }
+    throw 'phase 2: no server.pid lock'
+  }
   $orphanPid = Read-ServerPid
   if (-not (Wait-Port $testPort $true 60)) { throw 'phase 2: port did not open' }
   Write-Host "PASS: phase 2: server running (pid $orphanPid)"
@@ -122,7 +164,14 @@ try {
 
   Write-Host '==> phase 2: relaunching the app (recovery should reclaim the orphan)'
   $app = Launch-App
-  if (-not (Wait-Lock (Join-Path $stateDir 'server.pid') "$orphanPid")) { throw 'phase 2: no new server.pid lock' }
+  if (-not (Wait-Lock (Join-Path $stateDir 'server.pid') "$orphanPid")) {
+    $serverLog = Join-Path $stateDir 'server.log'
+    if (Test-Path $serverLog) {
+      Write-Host "--- server.log ---"
+      Get-Content $serverLog -Tail 100
+    }
+    throw 'phase 2: no new server.pid lock'
+  }
   $newPid = Read-ServerPid
   if (-not (Wait-Port $testPort $true 60)) { throw 'phase 2: port did not reopen' }
   Start-Sleep -Seconds 2

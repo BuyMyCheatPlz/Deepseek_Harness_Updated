@@ -767,6 +767,12 @@ namespace DeepSeekHarness
                 + " latest=" + latest + " source=" + source);
             if (!string.IsNullOrEmpty(current) && Semver.Compare(latest, current) > 0)
             {
+                if (Environment.GetEnvironmentVariable("CI") != null)
+                {
+                    Log("Skipping update prompt in CI: current=" + current + " latest=" + latest);
+                    StartServer();
+                    return;
+                }
                 DialogResult result = MessageBox.Show(this,
                     "A newer DeepSeek Harness is available.\n\nCurrent: " + current
                     + "\nNew: " + latest + " (via " + source + ")"
@@ -850,6 +856,13 @@ namespace DeepSeekHarness
             restartButton.Enabled = true;
             if (message == lastFailure) return;
             lastFailure = message;
+            Log("Startup failure: " + message);
+            if (Environment.GetEnvironmentVariable("CI") != null)
+            {
+                Console.Error.WriteLine("FATAL: " + message);
+                Close();
+                return;
+            }
             DialogResult result = MessageBox.Show(this, message,
                 "DeepSeek Harness could not start the server",
                 MessageBoxButtons.YesNoCancel, MessageBoxIcon.Error);
