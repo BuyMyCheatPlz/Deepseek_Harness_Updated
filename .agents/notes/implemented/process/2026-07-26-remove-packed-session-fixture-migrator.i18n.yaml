@@ -1,0 +1,6 @@
+# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
+# side as of the last confirmed-consistent state. Both languages carry equal authority;
+# after editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write .agents/notes/implemented/process/2026-07-26-remove-packed-session-fixture-migrator.md
+2026-07-26-remove-packed-session-fixture-migrator.md: bcf3ded528afeef626337217860bbb8996b19364
+2026-07-26-remove-packed-session-fixture-migrator.zh.md: a4f375c9514c64b981d570872564347658fd1fd2

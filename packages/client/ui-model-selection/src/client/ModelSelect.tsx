@@ -58,7 +58,9 @@ export function ModelSelect(
   const toggleAuto = (): void => {
     if (toggling) return
     setToggling(true)
-    void setAutoRouting(!autoRouting).finally(() => setToggling(false))
+    void setAutoRouting(!autoRouting).finally(() => {
+      setToggling(false)
+    })
   }
   const [open, setOpen] = useState(false)
   const [pane, setPane] = useState<Pane>('root')

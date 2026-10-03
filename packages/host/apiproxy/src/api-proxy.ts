@@ -1167,7 +1167,7 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
     const installed = selections.get(agent)
     if (installed !== undefined) return installed
     let picked: ModelSelection | undefined
-    const autoRouting = true
+    let autoRouting = true
     const base = (): ModelSelection => {
       if (picked !== undefined) return picked
       const logged = agent.session.requestHeader()?.config
@@ -1198,7 +1198,12 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
       set current(next: ModelSelection) {
         picked = next
       },
-      autoRouting,
+      get autoRouting(): boolean {
+        return autoRouting
+      },
+      set autoRouting(next: boolean) {
+        autoRouting = next
+      },
       effective,
       clearManual: () => { picked = undefined },
       assembled: undefined,
@@ -1208,9 +1213,9 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
       // it (Act) the execution slot does. An absent router (or one without
       // both slots) leaves the assembled default in place.
       route: (payload) => {
-        if (!autoRouting) return picked
+        if (!autoRouting || picked !== undefined) return undefined
         const router = ctx.get('modelRouter')
-        if (router === undefined || picked !== undefined) return undefined
+        if (router === undefined) return undefined
         const agentCtx = payload.agent as Partial<Agent> | undefined
         return router.route({
           step: payload.step,

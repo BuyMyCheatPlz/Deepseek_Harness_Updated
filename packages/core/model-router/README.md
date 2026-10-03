@@ -48,16 +48,16 @@ Both slots must be present for routing to activate; removing either (or the whol
 
 The web-app bundle (`packages/bundle/web-app/cordis.patch.yml`) supplies the deployment-default slots (`reasoning` → `deepseek-v4-pro`, `execution` → `deepseek-v4-flash`); a `agent-model-router:` settings section overrides them without a restart.
 
-## Known Limitations
-
-- Routing is plan-mode keyed and host-plane: it applies to every agent that reads it, with no per-session override other than an explicit composer pick.
-- A session that never enters plan mode always uses the `execution` slot (or the step fallback first step), so "Act always flash" is the default unless you enter plan mode.
-- `@deepseek-ai/dsh-host-apiproxy` depends on `@deepseek-ai/dsh-plan-mode` for the fold; a composition without plan-mode mounts only the step fallback.
-
 ## Model Experience
 
-Indirect, through the model selection each request receives: in plan mode the reasoning model sees every request (strong planning over the effortful `high` setting); outside plan mode the execution model sees them (reasoning disabled, cheaper execution). Both run over the same system prompt and history; only provider/model (and per-slot reasoning effort) differ.
+Indirectly, through the model selection each request receives; request assembly and adapters own the model-visible request.
 
 #### KV Cache effect
 
 A mode transition between requests selects a different cache domain, so the first execution request after leaving plan mode cannot reuse the reasoning model's prefix.
+
+## Known Limitations and Deferred Work
+
+- Routing is plan-mode keyed and host-plane: it applies to every agent that reads it, with no per-session override other than an explicit composer pick.
+- A session that never enters plan mode always uses the `execution` slot (or the step fallback first step), so "Act always flash" is the default unless you enter plan mode.
+- `@deepseek-ai/dsh-host-apiproxy` depends on `@deepseek-ai/dsh-plan-mode` for the fold; a composition without plan-mode mounts only the step fallback.

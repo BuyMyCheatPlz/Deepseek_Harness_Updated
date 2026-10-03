@@ -722,6 +722,28 @@ roots(): Agent[]
 
 Source: [`packages/core/agent/src/index.ts:256`](../../packages/core/agent/src/index.ts)
 
+<a id="ctxmodelrouter--modelrouter"></a>
+
+### `ctx.modelRouter` — `ModelRouter`
+
+Owns the per-step model routing policy independently of any transport. The composition entry remains usable without a settings provider; when one is mounted, its user layer is read live, so an edit to `agent-model-router` takes effect on the next step without a restart.
+
+```ts cordis-catalog
+/**
+ * The model slot one request uses. In plan mode (Cline-style Plan) the
+ * reasoning slot serves every step; otherwise the execution slot serves
+ * every step. When plan state is unknown (either mode omitted), fall back to
+ * the step rule: a turn's first step reasons, later tool-continuation steps
+ * execute.
+ * @param payload.planActive - whether plan mode is currently on; `undefined` when unknown.
+ * @param payload.step - 1-based step number within the current turn.
+ * @returns the selected slot, or `undefined` when either slot is unset.
+ */
+route(payload: { planActive?: boolean; step: number }): ModelSelection | undefined
+```
+
+Source: [`packages/core/model-router/src/index.ts:75`](../../packages/core/model-router/src/index.ts)
+
 <a id="agent-events"></a>
 
 ### `agent/*` events

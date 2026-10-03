@@ -30,12 +30,6 @@ ACP and headless snapshot runs harvest the default JSONL backend output. TUI and
 
 Focused package tests keep unpacked and mixed-layout inputs for reader compatibility. They do not opt the default snapshot corpus out of the canonical layout.
 
-### In-flight branch convergence
-
-The temporary [`scripts/migrate-packed-session-fixtures.ts`](../../../../scripts/migrate-packed-session-fixtures.ts) command lets in-flight branches converge after merging current `master`: `pnpm run migrate:packed-session-fixtures` discovers the same repository-wide fixture set as the permanent gate, preserves each header line, decodes existing mixed records, writes the canonical packed body, proves decoded equality, and proves idempotence. It never calls a model or regenerates transcript and presentation outputs.
-
-The command remains linked from the testing policy and ACP snapshot README while older branches may carry fixture edits. The [removal proposal](../../proposed/process/2026-07-26-remove-packed-session-fixture-migrator.md) deletes the CLI, package command, this transitional section, and the documentation links, then replaces the permanent gate's command-specific remediation text once a live open-PR inventory shows that every affected branch is merged, closed, or canonical. The shared canonicalizer and snapshot gate remain permanent.
-
 ### Verification contract
 
 JSONL persistence tests prove that omission writes a packed row, explicit `false` writes one event per line, and both forms load identical events. Canonicalizer unit tests cover header preservation, unpacked conversion, non-session JSONL, already-packed idempotence, and malformed input. The keyless snapshot gate covers every committed fixture and assembled replay path; documentation gates keep config defaults and bilingual contracts aligned.
@@ -56,4 +50,4 @@ JSONL persistence tests prove that omission writes a packed row, explicit `false
 
 Ordinary JSONL writes and committed fixtures use fewer physical rows while preserving the exact logical event stream. Runtime readers accept every existing layout, and operators retain a deliberate unpacked diagnostic mode. Raw files are less convenient for per-token line processing, and external tools that incorrectly treat every post-header row as a `SessionEvent` encounter storage tags more often; supported readers call `decodeStorageRecord()`.
 
-The repository carries a large mechanical fixture diff, reviewed through decoded equality and the canonical-layout gate rather than token-by-token line inspection. It also temporarily carries one branch migration command and its links; the separate removal proposal prevents that transition aid from becoming permanent process surface.
+The repository carries a large mechanical fixture diff, reviewed through decoded equality and the canonical-layout gate rather than token-by-token line inspection.

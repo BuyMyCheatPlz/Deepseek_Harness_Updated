@@ -340,6 +340,14 @@ const SERVICE_ROLES: ServiceRole[] = [
     note: 'Layers the default ModelSelection through settings so direct and Host-backed Agent entry points share one state owner.',
   },
   {
+    key: 'modelRouter',
+    pkg: 'model-router',
+    title: 'Per-step model routing',
+    mode: 'core',
+    consumers: ['host-apiproxy'],
+    note: 'Routes requests to reasoning or execution model slots based on plan mode or step count.',
+  },
+  {
     key: 'agentLoop',
     pkg: 'agent-loop',
     title: 'Concrete loop driver',

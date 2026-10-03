@@ -656,7 +656,7 @@ export interface Config {
 }
 ```
 
-来源：[`packages/bundle/headless/src/index.ts:31`](../packages/bundle/headless/src/index.ts)
+来源：[`packages/bundle/headless/src/index.ts:34`](../packages/bundle/headless/src/index.ts)
 
 <a id="deepseek-aidsh-hooks-claude-code"></a>
 
@@ -1294,6 +1294,35 @@ export interface Config {
 ```
 
 来源：[`packages/feedback/message-feedback/src/index.ts:49`](../packages/feedback/message-feedback/src/index.ts)
+
+<a id="deepseek-aidsh-model-router"></a>
+
+## `@deepseek-ai/dsh-model-router`
+
+```ts config-catalog
+/** Composition entry: optional deployment defaults for both slots. */
+export interface Config extends ModelRouterSettings {}
+
+/** The two slots the router selects between; either may be absent, which disables routing. */
+export interface ModelRouterSettings {
+  /** Serves a turn's first step — the fresh reasoning about user intent. */
+  reasoning?: ModelRouterSlot
+  /** Serves the tool-continuation steps that execute the decided work. */
+  execution?: ModelRouterSlot
+}
+
+/** One router slot: a provider/model pair plus an optional reasoning effort. */
+export interface ModelRouterSlot {
+  /** Registered provider route. */
+  provider: string
+  /** Provider-owned model id. */
+  model: string
+  /** Adapter-owned reasoning effort, or provider/default behavior when absent. */
+  reasoningEffort?: string
+}
+```
+
+来源：[`packages/core/model-router/src/index.ts:56`](../packages/core/model-router/src/index.ts)
 
 <a id="deepseek-aidsh-permission-presets"></a>
 
@@ -2589,7 +2618,7 @@ export interface Config {
 }
 ```
 
-来源：[`packages/fs/tool-str-replace-editor/src/index.ts:497`](../packages/fs/tool-str-replace-editor/src/index.ts)
+来源：[`packages/fs/tool-str-replace-editor/src/index.ts:525`](../packages/fs/tool-str-replace-editor/src/index.ts)
 
 <a id="deepseek-aidsh-tool-subagent"></a>
 

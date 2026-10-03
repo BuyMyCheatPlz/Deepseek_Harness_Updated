@@ -907,6 +907,19 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
     ],
   },
   {
+    key: 'modelRouter',
+    summary: 'Owns the per-step model routing policy independently of any transport.',
+    description: 'Owns the per-step model routing policy independently of any transport. The composition entry remains usable without a settings provider; when one is mounted, its user layer is read live, so an edit to `agent-model-router` takes effect on the next step without a restart.',
+    methods: [
+      {
+        signature: 'route(payload: { planActive?: boolean; step: number }): ModelSelection | undefined',
+        description: 'The model slot one request uses. In plan mode (Cline-style Plan) the reasoning slot serves every step; otherwise the execution slot serves every step. When plan state is unknown (either mode omitted), fall back to the step rule: a turn\'s first step reasons, later tool-continuation steps execute.',
+        parameters: [{ name: 'payload', description: '.step - 1-based step number within the current turn.' }],
+        returns: 'the selected slot, or `undefined` when either slot is unset.',
+      },
+    ],
+  },
+  {
     key: 'permissionPresets',
     summary: 'Owns the deployment\'s permission presets and their write path.',
     description: 'Owns the deployment\'s permission presets and their write path. Requires a confining `ctx.shell` executor and `ctx.approval`; unmatched knob values are reported as CUSTOM_PRESET, not an error.',

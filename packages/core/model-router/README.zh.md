@@ -48,16 +48,16 @@ agent-model-router:
 
 Web-app bundle（`packages/bundle/web-app/cordis.patch.yml`）提供了部署默认槽位（`reasoning` → `deepseek-v4-pro`，`execution` → `deepseek-v4-flash`）；`agent-model-router:` 设置段可覆盖它们，无需重启。
 
-## 已知局限
-
-- 分流以 plan 模式为键且位于宿主平面：作用于读取它的每一个 agent，除 composer 显式选择外没有按会话的覆盖。
-- 从未进入 plan 模式的会话始终使用 `execution` 槽位（或在无 plan 时按步骤回退到第 1 步推理），所以「Act 恒 flash」是默认行为，除非你进入 plan 模式。
-- `@deepseek-ai/dsh-host-apiproxy` 依赖 `@deepseek-ai/dsh-plan-mode` 来做 fold；未挂载 plan-mode 的组合只回退到步骤规则。
-
 ## 模型体验
 
-间接地通过每个请求收到的模型选择生效：plan 模式下推理模型看到每个请求（在高 `high` 强度下做强规划）；plan 模式外执行模型看到它们（关闭推理、更省成本）。二者使用同一份系统提示与历史；仅 provider/model（以及各自槽位的推理强度）不同。
+间接地通过每个请求收到的模型选择生效；请求组装与适配器拥有模型可见的请求。
 
 #### KV 缓存影响
 
 两次请求之间的模式切换会进入不同的缓存域，因此离开 plan 模式后的第一个执行请求无法复用推理模型的前缀。
+
+## 已知局限与延后工作
+
+- 分流以 plan 模式为键且位于宿主平面：作用于读取它的每一个 agent，除 composer 显式选择外没有按会话的覆盖。
+- 从未进入 plan 模式的会话始终使用 `execution` 槽位（或在无 plan 时按步骤回退到第 1 步推理），所以「Act 恒 flash」是默认行为，除非你进入 plan 模式。
+- `@deepseek-ai/dsh-host-apiproxy` 依赖 `@deepseek-ai/dsh-plan-mode` 来做 fold；未挂载 plan-mode 的组合只回退到步骤规则。

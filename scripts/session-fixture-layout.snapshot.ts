@@ -12,6 +12,6 @@ it('keeps every session-format JSONL fixture in canonical packed layout', () => 
     .map(fixture => fixture.path)
   expect(
     nonCanonical,
-    'Run `pnpm run migrate:packed-session-fixtures` and commit the mechanical fixture rewrite.',
+    'Committed session-format JSONL fixtures must use canonical packed layout.',
   ).toEqual([])
 })

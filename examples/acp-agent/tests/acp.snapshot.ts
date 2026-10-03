@@ -299,9 +299,7 @@ const SCENARIOS: Scenario[] = [
   // on a host-installed ripgrep binary or a PATH stand-in. POSIX-only because
   // the displayed paths carry `/` separators the session-log comparison
   // cannot normalize. Recorded (not authored): the assistant turn is a real
-  // model transcript; re-record with `test:snapshot:record -t fs-glob-sampling`
-  // and then `migrate:packed-session-fixtures`, which canonicalizes the live
-  // log's eager-drain-packed rows into the maximal-run layout replay produces.
+  // model transcript; re-record with `test:snapshot:record -t fs-glob-sampling`.
   // The recorded fixture's `request/header` config and `request/context` are
   // normalized to the minimal fields produced during replay (the live adapter logs
   // model capabilities like maxTokens/reasoningEffort that llm-replay has no
