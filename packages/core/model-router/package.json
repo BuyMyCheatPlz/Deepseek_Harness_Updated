@@ -1,7 +1,7 @@
 {
   "name": "@deepseek-ai/dsh-model-router",
   "description": "Per-step model routing: a reasoning model for a turn's first step, an execution model for its tool-continuation steps",
-  "version": "0.1.0-rc.5",
+  "version": "0.1.2",
   "publishConfig": {
     "access": "public"
   },
