@@ -114,6 +114,8 @@ jobs:
   build-windows:
     name: Build DeepSeek Harness.exe
     runs-on: windows-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
     steps:
       - uses: actions/checkout@v6
 
@@ -231,7 +233,7 @@ jobs:
 
   publish:
     name: Publish to GitHub Release
-    if: ${{ github.event_name == 'push' && github.ref_type == 'tag' || inputs.publish }}
+    if: ${{ github.event_name == 'push' || inputs.publish }}
     # Only Windows is built in this fork (build-macos is if: false). A skipped
     # `needs` job skips its dependents, so naming build-macos here would skip
     # publish and never create the Release.
@@ -240,12 +242,6 @@ jobs:
     permissions:
       contents: write
     steps:
-      - name: Require a dsh-v* tag for publishing
-        if: github.ref_type != 'tag'
-        run: |
-          echo "::error::Publishing to a GitHub Release requires running from a dsh-v* tag (current ref: $GITHUB_REF_NAME)."
-          exit 1
-
       - uses: actions/checkout@v4
 
       - uses: actions/download-artifact@v4
@@ -260,8 +256,15 @@ jobs:
           GH_REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
-          TAG="$GITHUB_REF_NAME"
-          VERSION="${TAG#dsh-v}"
+          if [[ "$GITHUB_REF_TYPE" == "tag" ]]; then
+            TAG="$GITHUB_REF_NAME"
+            VERSION="${TAG#dsh-v}"
+          else
+            VERSION="${{ needs.build-windows.outputs.version }}"
+            TAG="dsh-v${VERSION}"
+          fi
+          echo "Target tag: $TAG, Version: $VERSION"
+
           if [[ -z "$(ls dist/DeepSeek-Harness-Setup-*.exe 2>/dev/null)" ]]; then
             echo "::error::no Windows setup asset found under dist/"
             exit 1
@@ -279,5 +282,5 @@ jobs:
             gh release edit "$TAG" --title "DeepSeek Harness ${VERSION}" --notes-file release_notes.md --draft=false
           else
             echo "Creating new release $TAG..."
-            gh release create "$TAG" dist/DeepSeek-Harness-Setup-*.exe --title "DeepSeek Harness ${VERSION}" --notes-file release_notes.md
+            gh release create "$TAG" dist/DeepSeek-Harness-Setup-*.exe --target "$GITHUB_SHA" --title "DeepSeek Harness ${VERSION}" --notes-file release_notes.md
           fi
