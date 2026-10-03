@@ -357,7 +357,11 @@ function main(): void {
     console.log('release bump: dry run, nothing written')
     return
   }
-  capture('git', ['add', 'pnpm-lock.yaml', ...planned.map(entry => entry.manifestPath)])
+  const filesToAdd = ['pnpm-lock.yaml', ...planned.map(entry => entry.manifestPath)]
+  const BATCH_SIZE = 50
+  for (let index = 0; index < filesToAdd.length; index += BATCH_SIZE) {
+    capture('git', ['add', ...filesToAdd.slice(index, index + BATCH_SIZE)])
+  }
   capture('git', ['commit', '-m', `release(${family.id}): ${summary}`])
   console.log('release bump: committed. After this merges to master, tag it:')
   for (const tag of [...new Set(planned.map(entry => entry.tag).filter(tag => tag !== undefined))]) {

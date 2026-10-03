@@ -48,8 +48,8 @@ const SLOT_SCHEMA: z<ModelRouterSlot> = z.object({
 
 /** Schema of the agent-model-router settings section. */
 export const MODEL_ROUTER_SETTINGS_SCHEMA: z<ModelRouterSettings> = z.object({
-  reasoning: SLOT_SCHEMA,
-  execution: SLOT_SCHEMA,
+  reasoning: SLOT_SCHEMA.default(undefined as unknown as ModelRouterSlot),
+  execution: SLOT_SCHEMA.default(undefined as unknown as ModelRouterSlot),
 })
 
 /** Composition entry: optional deployment defaults for both slots. */
@@ -74,8 +74,8 @@ function toSelection(slot: ModelRouterSlot): ModelSelection {
  */
 export class ModelRouter extends Service {
   static Config: z<Config> = z.object({
-    reasoning: SLOT_SCHEMA,
-    execution: SLOT_SCHEMA,
+    reasoning: SLOT_SCHEMA.default(undefined as unknown as ModelRouterSlot),
+    execution: SLOT_SCHEMA.default(undefined as unknown as ModelRouterSlot),
   })
 
   private source: () => ModelRouterSettings
