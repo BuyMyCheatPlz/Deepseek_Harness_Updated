@@ -22,6 +22,10 @@ if (-not (Test-Path $builtModelRouter)) {
 # Copy one fork build output into BOTH the live bundled dsh\ and the persistent
 # overlay\dsh stash. `src` is the source path; `rel` is 'dsh-<pkg>\<subpath>'.
 function Stage-OverlayFile([string]$src, [string]$rel) {
+  if (-not (Test-Path $src)) {
+    Write-Host "skip missing source: $src"
+    return
+  }
   $target = Join-Path $buildDsh $rel
   New-Item -ItemType Directory -Force (Split-Path $target) | Out-Null
   Copy-Item $src $target -Force
